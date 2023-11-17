@@ -17,6 +17,7 @@ namespace Helika
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
         private const string SdkVersion = "0.1.0";
+        private const string SdkClass = "EventManager";
 
         private string _apiKey;
         protected string _baseUrl;
@@ -24,8 +25,11 @@ namespace Helika
         protected string _sessionID;
         protected bool _isInitialized = false;
 
+        protected string _deviceId;
 
-        public void Init(string apiKey, string gameId, string baseUrl)
+        protected bool _enabled = false;
+
+        public async void Init(string apiKey, string gameId, string baseUrl, bool enabled = false)
         {
             if (_isInitialized)
             {
@@ -41,15 +45,36 @@ namespace Helika
             _gameId = gameId;
             _baseUrl = baseUrl;
             _sessionID = Guid.NewGuid().ToString();
+            _enabled = enabled;
 
             KochavaTracker.Instance.RegisterEditorAppGuid("kohelika-test-molp8ydo");
             KochavaTracker.Instance.RegisterAndroidAppGuid("kohelika-test-molp8ydo");
             KochavaTracker.Instance.RegisterIosAppGuid("kohelika-test-molp8ydo");
             KochavaTracker.Instance.Start();
+
+            await CreateSession();
+
+            // Send an event to store the Kochava device id
+            KochavaTracker.Instance.GetDeviceId((deviceId) =>
+            {
+                this._deviceId = deviceId;
+
+                JObject deviceIdEvent = new JObject(
+                    new JProperty("game_id", "HELIKA_SDK"),
+                    new JProperty("event_type", "GET_DEVICE_ID"),
+                    new JProperty("event", new JObject(
+                        new JProperty("kochava_device_id", deviceId)
+                    ))
+                );
+
+                // Asynchronous send event
+                SendEvent(new JObject[] { deviceIdEvent });
+            });
         }
 
         public async Task<string> SendEvent(JObject[] helikaEvents)
         {
+            // Add helika-specific data to the events
             JArray jarrayObj = new JArray();
             foreach (JObject helikaEvent in helikaEvents)
             {
@@ -59,7 +84,8 @@ namespace Helika
                 }
                 ((JObject)helikaEvent["event"]).Add("sessionID", _sessionID);
 
-                helikaEvent.Add("created_at", DateTime.UtcNow.ToString());
+                // Convert to ISO 8601 format string using "o" specifier
+                helikaEvent.Add("created_at", DateTime.UtcNow.ToString("o"));
                 jarrayObj.Add(helikaEvent);
             }
 
@@ -67,28 +93,36 @@ namespace Helika
                 new JProperty("id", _sessionID),
                 new JProperty("events", jarrayObj)
             );
-            // newEvent.Add("events", helikaEvents);
-            Debug.Log(newEvent.ToString());
-            return "test";
-            // return await PostAsync("/game/game-event", newEvent.ToString());
-        }
 
-        public async Task<string> TestHelikaAPI()
-        {
-            var jsonObject = new
+            if (!_enabled)
             {
-                message = "test"
-            };
-            var jsonString = JsonConvert.SerializeObject(jsonObject);
-            Debug.Log(jsonString);
-
-            string returnData = await PostAsync("/game/test-event", jsonString);
-            Debug.Log(returnData);
-            return returnData;
-            // return JsonUtility.FromJson<ReturnData>(returnData);
+                var message = "Event sent: " + newEvent.ToString();
+                Debug.Log(message);
+                return message;
+            }
+            return await PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        protected async Task<string> PostAsync(string url, string data)
+        public void SetEnableEvents(bool enabled)
+        {
+            _enabled = enabled;
+        }
+
+        private async Task<string> CreateSession()
+        {
+            JObject createSessionEvent = new JObject(
+                new JProperty("game_id", "HELIKA_SDK"),
+                new JProperty("event_type", "SESSION_CREATED"),
+                new JProperty("event", new JObject(
+                    new JProperty("sdk_name", SdkName),
+                    new JProperty("sdk_version", SdkVersion),
+                    new JProperty("sdk_class", SdkClass)
+                ))
+            );
+            return await SendEvent(new JObject[] { createSessionEvent });
+        }
+
+        private async Task<string> PostAsync(string url, string data)
         {
             // Create a UnityWebRequest object
             UnityWebRequest request = new UnityWebRequest(_baseUrl.ToString() + url, "POST");
@@ -107,12 +141,7 @@ namespace Helika
             await request.SendWebRequest();
 
             // Check for errors
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                // Display the response text
-                Debug.Log("Response: " + request.downloadHandler.text);
-            }
-            else
+            if (request.result != UnityWebRequest.Result.Success)
             {
                 // Display the error
                 Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
