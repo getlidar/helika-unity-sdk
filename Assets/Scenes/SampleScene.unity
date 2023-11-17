@@ -328,6 +328,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a6cc832c4449a645be9a225e30146c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ApiKey: 4b22e2a34e2c95d9b46668a702ead7
+  GameId: HelikaUnitySDK
+  BaseUrl: http://localhost:8181/v1
+  SendingEvents: 0
 --- !u!4 &1452081451
 Transform:
   m_ObjectHideFlags: 0
