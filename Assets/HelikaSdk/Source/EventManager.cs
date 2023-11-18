@@ -19,11 +19,14 @@ namespace Helika
         private const string SdkVersion = "0.1.0";
         private const string SdkClass = "EventManager";
 
-        private string _apiKey;
+        private string _helikaApiKey;
+        private string _kochavaApiKey;
         protected string _baseUrl;
         protected string _gameId;
         protected string _sessionID;
         protected bool _isInitialized = false;
+
+        protected string _gamerID;
 
         protected string _deviceId;
 
@@ -41,15 +44,22 @@ namespace Helika
                 throw new ArgumentException("Invalid Base URL");
             }
 
-            _apiKey = apiKey;
+            string[] apiKeys = apiKey.Split('.');
+            if (apiKeys.Length != 2)
+            {
+                throw new ArgumentException("Invalid API Key");
+            }
+
+            _helikaApiKey = apiKeys[0];
+            _kochavaApiKey = apiKeys[1];
             _gameId = gameId;
             _baseUrl = baseUrl;
             _sessionID = Guid.NewGuid().ToString();
             _enabled = enabled;
 
-            KochavaTracker.Instance.RegisterEditorAppGuid("kohelika-test-molp8ydo");
-            KochavaTracker.Instance.RegisterAndroidAppGuid("kohelika-test-molp8ydo");
-            KochavaTracker.Instance.RegisterIosAppGuid("kohelika-test-molp8ydo");
+            KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
+            KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
+            KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
             KochavaTracker.Instance.Start();
 
             await CreateSession();
@@ -74,6 +84,8 @@ namespace Helika
 
         public async Task<string> SendEvent(JObject[] helikaEvents)
         {
+            // Todo: validate json info
+
             // Add helika-specific data to the events
             JArray jarrayObj = new JArray();
             foreach (JObject helikaEvent in helikaEvents)
@@ -83,6 +95,11 @@ namespace Helika
                     helikaEvent["event"] = new JObject();
                 }
                 ((JObject)helikaEvent["event"]).Add("sessionID", _sessionID);
+
+                if (!string.IsNullOrWhiteSpace(_gameId))
+                {
+                    ((JObject)helikaEvent["event"]).Add("gamer_id", _gamerID);
+                }
 
                 // Convert to ISO 8601 format string using "o" specifier
                 helikaEvent.Add("created_at", DateTime.UtcNow.ToString("o"));
@@ -108,6 +125,16 @@ namespace Helika
             _enabled = enabled;
         }
 
+        public void GetGamerID(string gamerID)
+        {
+            return _gamerID;
+        }
+
+        public void SetGamerID(string gamerID)
+        {
+            _gamerID = gamerID;
+        }
+
         private async Task<string> CreateSession()
         {
             JObject createSessionEvent = new JObject(
@@ -130,7 +157,7 @@ namespace Helika
             // Set the request method and content type
             // request.method = "POST";
             request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("x-api-key", _apiKey);
+            request.SetRequestHeader("x-api-key", _helikaApiKey);
 
             // Convert the data to bytes and attach it to the request
             byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(data);
