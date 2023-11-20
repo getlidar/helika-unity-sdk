@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Helika
 {
-    public class DemoHelikaAsset : MonoBehaviour
+    public class HelikaAssetScript : MonoBehaviour
     {
         public string apiKey;
         public string gameId;
