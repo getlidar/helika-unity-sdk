@@ -45,6 +45,11 @@ namespace Helika
                 throw new ArgumentException("Invalid API Key");
             }
 
+            if (!string.IsNullOrWhiteSpace(gameId))
+            {
+                throw new ArgumentException("Missing Game ID");
+            }
+
             _helikaApiKey = apiKeys[0];
             _kochavaApiKey = apiKeys[1];
             _gameId = gameId;
@@ -81,12 +86,15 @@ namespace Helika
 
         public async Task<string> SendEvent(JObject[] helikaEvents)
         {
-            // Todo: validate json info
-
             // Add helika-specific data to the events
             JArray jarrayObj = new JArray();
             foreach (JObject helikaEvent in helikaEvents)
             {
+                if (helikaEvent["event_type"] == null || string.IsNullOrWhiteSpace(helikaEvent["event_type"]))
+                {
+                    throw new ArgumentException("Invalid Event: Missing 'event_type' field");
+                }
+
                 if (helikaEvent["event"] == null)
                 {
                     helikaEvent["event"] = new JObject();
@@ -99,6 +107,7 @@ namespace Helika
                 }
 
                 // Convert to ISO 8601 format string using "o" specifier
+                helikaEvent.Add("game_id", _gameId);
                 helikaEvent.Add("created_at", DateTime.UtcNow.ToString("o"));
                 jarrayObj.Add(helikaEvent);
             }

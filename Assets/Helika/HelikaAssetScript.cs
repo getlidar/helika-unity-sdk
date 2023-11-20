@@ -30,6 +30,7 @@ namespace Helika
         {
             if (Input.GetKeyDown("space"))
             {
+                // This is an example of how to send an event
                 JObject startEvent = new JObject(
                     new JProperty("game_id", "Test Project"),
                     new JProperty("event_type", "Start Event"),
