@@ -16,7 +16,7 @@ namespace Rawrshak
         public string BaseUrl = Helika.HelikaBaseURL.Localhost;
         public bool SendingEvents = false;
         private Helika.EventManager eventManager;
-        public bool gamerId;
+        public string gamerId;
 
         void Start()
         {

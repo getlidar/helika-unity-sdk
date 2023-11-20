@@ -125,7 +125,7 @@ namespace Helika
             _enabled = enabled;
         }
 
-        public void GetGamerID(string gamerID)
+        public string GetGamerID(string gamerID)
         {
             return _gamerID;
         }
