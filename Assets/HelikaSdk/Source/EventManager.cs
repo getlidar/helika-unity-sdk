@@ -93,7 +93,7 @@ namespace Helika
                 }
                 ((JObject)helikaEvent["event"]).Add("sessionID", _sessionID);
 
-                if (!string.IsNullOrWhiteSpace(_gameId))
+                if (!string.IsNullOrWhiteSpace(_gamerID))
                 {
                     ((JObject)helikaEvent["event"]).Add("gamer_id", _gamerID);
                 }
