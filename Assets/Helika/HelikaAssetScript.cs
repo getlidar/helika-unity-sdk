@@ -7,21 +7,21 @@ using UnityEngine;
 using Helika;
 using Newtonsoft.Json.Linq;
 
-namespace Rawrshak
+namespace Helika
 {
-    public class DemoHelikaAsset : MonoBehaviour
+    public class HelikaAssetScript : MonoBehaviour
     {
-        public string ApiKey;
-        public string GameId;
-        public string BaseUrl = Helika.HelikaBaseURL.Localhost;
-        public bool SendingEvents = false;
-        private Helika.EventManager eventManager;
-        public bool gamerId;
+        public string apiKey;
+        public string gameId;
+        public HelikaEnvironment helikaEnv = HelikaEnvironment.Localhost;
+        public bool sendingEvents = false;
+        private EventManager eventManager;
+        public string gamerId;
 
         void Start()
         {
-            eventManager = Helika.EventManager.Instance;
-            eventManager.Init(ApiKey, GameId, BaseUrl, SendingEvents);
+            eventManager = EventManager.Instance;
+            eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
             eventManager.SetGamerID(gamerId);
         }
 
@@ -30,6 +30,7 @@ namespace Rawrshak
         {
             if (Input.GetKeyDown("space"))
             {
+                // This is an example of how to send an event
                 JObject startEvent = new JObject(
                     new JProperty("game_id", "Test Project"),
                     new JProperty("event_type", "Start Event"),

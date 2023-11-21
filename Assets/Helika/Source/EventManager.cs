@@ -32,16 +32,11 @@ namespace Helika
 
         protected bool _enabled = false;
 
-        public async void Init(string apiKey, string gameId, string baseUrl, bool enabled = false)
+        public async void Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
         {
             if (_isInitialized)
             {
                 return;
-            }
-
-            if (!HelikaBaseURL.validate(baseUrl))
-            {
-                throw new ArgumentException("Invalid Base URL");
             }
 
             string[] apiKeys = apiKey.Split('.');
@@ -50,12 +45,19 @@ namespace Helika
                 throw new ArgumentException("Invalid API Key");
             }
 
+            if (!string.IsNullOrWhiteSpace(gameId))
+            {
+                throw new ArgumentException("Missing Game ID");
+            }
+
             _helikaApiKey = apiKeys[0];
             _kochavaApiKey = apiKeys[1];
             _gameId = gameId;
-            _baseUrl = baseUrl;
+            _baseUrl = ConvertUrl(env);
             _sessionID = Guid.NewGuid().ToString();
-            _enabled = enabled;
+
+            // If Localhost is set, force disable sending events
+            _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
 
             KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
             KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
@@ -84,24 +86,28 @@ namespace Helika
 
         public async Task<string> SendEvent(JObject[] helikaEvents)
         {
-            // Todo: validate json info
-
             // Add helika-specific data to the events
             JArray jarrayObj = new JArray();
             foreach (JObject helikaEvent in helikaEvents)
             {
+                if (helikaEvent["event_type"] == null || string.IsNullOrWhiteSpace(helikaEvent["event_type"]))
+                {
+                    throw new ArgumentException("Invalid Event: Missing 'event_type' field");
+                }
+
                 if (helikaEvent["event"] == null)
                 {
                     helikaEvent["event"] = new JObject();
                 }
                 ((JObject)helikaEvent["event"]).Add("sessionID", _sessionID);
 
-                if (!string.IsNullOrWhiteSpace(_gameId))
+                if (!string.IsNullOrWhiteSpace(_gamerID))
                 {
                     ((JObject)helikaEvent["event"]).Add("gamer_id", _gamerID);
                 }
 
                 // Convert to ISO 8601 format string using "o" specifier
+                helikaEvent.Add("game_id", _gameId);
                 helikaEvent.Add("created_at", DateTime.UtcNow.ToString("o"));
                 jarrayObj.Add(helikaEvent);
             }
@@ -125,7 +131,7 @@ namespace Helika
             _enabled = enabled;
         }
 
-        public void GetGamerID(string gamerID)
+        public string GetGamerID(string gamerID)
         {
             return _gamerID;
         }
@@ -152,7 +158,7 @@ namespace Helika
         private async Task<string> PostAsync(string url, string data)
         {
             // Create a UnityWebRequest object
-            UnityWebRequest request = new UnityWebRequest(_baseUrl.ToString() + url, "POST");
+            UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
 
             // Set the request method and content type
             // request.method = "POST";
@@ -175,6 +181,20 @@ namespace Helika
             }
 
             return request.downloadHandler.text;
+        }
+
+        private string ConvertUrl(HelikaEnvironment baseUrl)
+        {
+            switch (baseUrl)
+            {
+                case HelikaEnvironment.Production:
+                    return "https://api.helika.io/v1";
+                case HelikaEnvironment.Develop:
+                    return "https://api-stage.helika.io/v1";
+                case HelikaEnvironment.Localhost:
+                default:
+                    return "http://localhost:8181/v1";
+            }
         }
     }
 }
