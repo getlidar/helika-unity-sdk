@@ -45,7 +45,7 @@ namespace Helika
                 throw new ArgumentException("Invalid API Key");
             }
 
-            if (!string.IsNullOrWhiteSpace(gameId))
+            if (string.IsNullOrWhiteSpace(gameId))
             {
                 throw new ArgumentException("Missing Game ID");
             }
@@ -90,25 +90,34 @@ namespace Helika
             JArray jarrayObj = new JArray();
             foreach (JObject helikaEvent in helikaEvents)
             {
-                if (helikaEvent["event_type"] == null || string.IsNullOrWhiteSpace(helikaEvent["event_type"]))
+                // Add game_id only if the event doesn't already have it
+                AddIfNull(helikaEvent, "game_id", _gameId);
+
+                // Convert to ISO 8601 format string using "o" specifier
+                AddOrReplace(helikaEvent, "created_at", DateTime.UtcNow.ToString("o"));
+
+                if (!helikaEvent.ContainsKey("event_type") || string.IsNullOrWhiteSpace(helikaEvent.GetValue("event_type").ToString()))
                 {
                     throw new ArgumentException("Invalid Event: Missing 'event_type' field");
                 }
 
-                if (helikaEvent["event"] == null)
+                if (!helikaEvent.ContainsKey("event"))
                 {
-                    helikaEvent["event"] = new JObject();
+                    helikaEvent.Add(new JProperty("event", new JObject()));
                 }
-                ((JObject)helikaEvent["event"]).Add("sessionID", _sessionID);
+
+                if (helikaEvent.GetValue("event").GetType() != typeof(Newtonsoft.Json.Linq.JObject))
+                {
+                    throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
+                }
+
+                JObject internalEvent = (JObject)helikaEvent.GetValue("event");
+                AddOrReplace(internalEvent, "sessionID", _sessionID);
 
                 if (!string.IsNullOrWhiteSpace(_gamerID))
                 {
-                    ((JObject)helikaEvent["event"]).Add("gamer_id", _gamerID);
+                    AddOrReplace(internalEvent, "gamer_id", _gamerID);
                 }
-
-                // Convert to ISO 8601 format string using "o" specifier
-                helikaEvent.Add("game_id", _gameId);
-                helikaEvent.Add("created_at", DateTime.UtcNow.ToString("o"));
                 jarrayObj.Add(helikaEvent);
             }
 
@@ -161,7 +170,6 @@ namespace Helika
             UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
 
             // Set the request method and content type
-            // request.method = "POST";
             request.SetRequestHeader("Content-Type", "application/json");
             request.SetRequestHeader("x-api-key", _helikaApiKey);
 
@@ -183,7 +191,29 @@ namespace Helika
             return request.downloadHandler.text;
         }
 
-        private string ConvertUrl(HelikaEnvironment baseUrl)
+        private static void AddIfNull(JObject helikaEvent, string key, string newValue)
+        {
+            if (!helikaEvent.ContainsKey(key))
+            {
+                helikaEvent.Add(key, newValue);
+            }
+        }
+
+
+        private static void AddOrReplace(JObject helikaEvent, string key, string newValue)
+        {
+            JToken gameIdObj;
+            if (helikaEvent.TryGetValue(key, out gameIdObj))
+            {
+                gameIdObj.Replace(newValue);
+            }
+            else
+            {
+                helikaEvent.Add(key, newValue);
+            }
+        }
+
+        private static string ConvertUrl(HelikaEnvironment baseUrl)
         {
             switch (baseUrl)
             {
