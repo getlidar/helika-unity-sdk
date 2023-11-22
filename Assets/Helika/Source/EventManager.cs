@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using System.Numerics;
 using UnityEngine;
@@ -16,7 +17,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.1.0";
+        private const string SdkVersion = "0.1.1";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
@@ -166,29 +167,28 @@ namespace Helika
 
         private async Task<string> PostAsync(string url, string data)
         {
-            // Create a UnityWebRequest object
-            UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
-
-            // Set the request method and content type
-            request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("x-api-key", _helikaApiKey);
-
-            // Convert the data to bytes and attach it to the request
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(data);
-            request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
-
-            // Send the request asynchronously
-            await request.SendWebRequest();
-
-            // Check for errors
-            if (request.result != UnityWebRequest.Result.Success)
+            using (UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST"))
             {
-                // Display the error
-                Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
-            }
+                // Set the request method and content type
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.SetRequestHeader("x-api-key", _helikaApiKey);
 
-            return request.downloadHandler.text;
+                // Convert the data to bytes and attach it to the request
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
+                request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+
+                // Send the request
+                await request.SendWebRequest();
+
+                // Check for errors
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    // Display the error
+                    Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
+                }
+                return request.downloadHandler.text;
+            }
         }
 
         private static void AddIfNull(JObject helikaEvent, string key, string newValue)
