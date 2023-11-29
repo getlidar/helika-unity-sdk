@@ -27,7 +27,7 @@ namespace Helika
         protected string _sessionID;
         protected bool _isInitialized = false;
 
-        protected string _gamerID;
+        protected string _playerID;
 
         protected string _deviceId;
 
@@ -115,9 +115,9 @@ namespace Helika
                 JObject internalEvent = (JObject)helikaEvent.GetValue("event");
                 AddOrReplace(internalEvent, "sessionID", _sessionID);
 
-                if (!string.IsNullOrWhiteSpace(_gamerID))
+                if (!string.IsNullOrWhiteSpace(_playerID))
                 {
-                    AddOrReplace(internalEvent, "gamer_id", _gamerID);
+                    AddOrReplace(internalEvent, "player_id", _playerID);
                 }
                 jarrayObj.Add(helikaEvent);
             }
@@ -141,14 +141,14 @@ namespace Helika
             _enabled = enabled;
         }
 
-        public string GetGamerID(string gamerID)
+        public string GetPlayerID()
         {
-            return _gamerID;
+            return _playerID;
         }
 
-        public void SetGamerID(string gamerID)
+        public void SetPlayerID(string playerID)
         {
-            _gamerID = gamerID;
+            _playerID = playerID;
         }
 
         private async Task<string> CreateSession()
