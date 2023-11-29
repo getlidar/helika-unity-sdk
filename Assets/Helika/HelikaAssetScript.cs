@@ -16,13 +16,13 @@ namespace Helika
         public HelikaEnvironment helikaEnv = HelikaEnvironment.Localhost;
         public bool sendingEvents = false;
         private EventManager eventManager;
-        public string gamerId;
+        public string playerId;
 
         void Start()
         {
             eventManager = EventManager.Instance;
             eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
-            eventManager.SetGamerID(gamerId);
+            eventManager.SetPlayerID(playerId);
         }
 
 
