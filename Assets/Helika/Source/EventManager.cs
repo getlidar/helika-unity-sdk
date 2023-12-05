@@ -17,7 +17,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.1.2";
+        private const string SdkVersion = "0.1.3";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
@@ -68,7 +68,7 @@ namespace Helika
             await CreateSession();
 
             // Send an event to store the Kochava device id
-            KochavaTracker.Instance.GetDeviceId((deviceId) =>
+            KochavaTracker.Instance.GetDeviceId(async (deviceId) =>
             {
                 this._deviceId = deviceId;
 
@@ -81,7 +81,7 @@ namespace Helika
                 );
 
                 // Asynchronous send event
-                SendEvent(new JObject[] { deviceIdEvent });
+                await SendEvent(new JObject[] { deviceIdEvent });
             });
         }
 
