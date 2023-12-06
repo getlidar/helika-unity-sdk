@@ -87,6 +87,11 @@ namespace Helika
 
         public async Task<string> SendEvent(JObject[] helikaEvents)
         {
+            if (!_isInitialized)
+            {
+                throw new Exception("Event Manager is not yet initialized");
+            }
+
             // Add helika-specific data to the events
             JArray jarrayObj = new JArray();
             foreach (JObject helikaEvent in helikaEvents)
