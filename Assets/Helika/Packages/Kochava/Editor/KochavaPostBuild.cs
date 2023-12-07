@@ -63,7 +63,7 @@ namespace Kochava.Editor
         private static void AddIosFramework(string path, string frameworkName)
         {
             // Build paths.
-            var xcFrameworkPath = Path.Combine("Assets", "Kochava", "Plugins", "iOS", frameworkName + ".xcframework");
+            var xcFrameworkPath = Path.Combine("Assets", "Helika", "Packages", "Kochava", "Plugins", "iOS", frameworkName + ".xcframework");
             var deviceFrameworkPath = Path.Combine(xcFrameworkPath, "ios-arm64", frameworkName + ".framework");
             var simulatorFrameworkPath = Path.Combine(xcFrameworkPath, "ios-arm64_x86_64-simulator", frameworkName + ".framework");
             var destFrameworkPath = Path.Combine("Frameworks", "Kochava", frameworkName + ".framework");
