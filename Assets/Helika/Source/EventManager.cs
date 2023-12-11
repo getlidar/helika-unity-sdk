@@ -62,21 +62,21 @@ namespace Helika
             // If Localhost is set, force disable sending events
             _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
 
-            KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
+            if (KochavaTracker.Instance != null)
+            {
+                KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
 #if UNITY_ANDROID
-            KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
+                KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
 #endif
 
 #if UNITY_IOS
-            KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
-            KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(true);
-            KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(30);
+                KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
+                KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(true);
+                KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(30);
 #endif
 
-            KochavaTracker.Instance.Start();
+                KochavaTracker.Instance.Start();
 
-            if (KochavaTracker.Instance != null)
-            {
                 // Send an event to store the Kochava device id
                 KochavaTracker.Instance.GetDeviceId((deviceId) =>
                 {

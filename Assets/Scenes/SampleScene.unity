@@ -332,7 +332,7 @@ MonoBehaviour:
   gameId: GameTest
   helikaEnv: 0
   sendingEvents: 0
-  gamerId: test-gamer
+  playerId: 
 --- !u!4 &1452081451
 Transform:
   m_ObjectHideFlags: 0
