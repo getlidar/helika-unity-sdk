@@ -67,6 +67,8 @@ namespace Helika
 
             await CreateSession();
 
+            _isInitialized = true;
+
             // Send an event to store the Kochava device id
             KochavaTracker.Instance.GetDeviceId(async (deviceId) =>
             {
