@@ -33,7 +33,7 @@ namespace Helika
 
         protected bool _enabled = false;
 
-        public async void Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
+        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
         {
             if (_isInitialized)
             {
@@ -63,8 +63,16 @@ namespace Helika
             _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
 
             KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
+#if UNITY_ANDROID
             KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
+#endif
+
+#if UNITY_IOS
             KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
+            KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(true);
+            KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(30);
+#endif
+
             KochavaTracker.Instance.Start();
 
             if (KochavaTracker.Instance != null)

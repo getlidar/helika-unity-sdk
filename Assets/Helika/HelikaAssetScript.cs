@@ -18,10 +18,10 @@ namespace Helika
         private EventManager eventManager;
         public string playerId;
 
-        void Start()
+        async Task Start()
         {
             eventManager = EventManager.Instance;
-            eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
+            await eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
             eventManager.SetPlayerID(playerId);
         }
 
