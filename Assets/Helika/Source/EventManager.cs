@@ -33,7 +33,7 @@ namespace Helika
 
         protected bool _enabled = false;
 
-        public async void Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
+        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
         {
             if (_isInitialized)
             {
@@ -56,6 +56,8 @@ namespace Helika
             _gameId = gameId;
             _baseUrl = ConvertUrl(env);
             _sessionID = Guid.NewGuid().ToString();
+
+            _isInitialized = true;
 
             // If Localhost is set, force disable sending events
             _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
