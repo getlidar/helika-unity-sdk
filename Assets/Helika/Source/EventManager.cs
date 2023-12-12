@@ -102,29 +102,9 @@ namespace Helika
                 throw new Exception("Event Manager is not yet initialized");
             }
 
-            Dictionary<string, object> helikaEvent = new Dictionary<string, object>();
-
-            // Add game_id only if the event doesn't already have it
-            helikaEvent["game_id"] = _gameId;
-
-            // Convert to ISO 8601 format string using "o" specifier
-            helikaEvent["created_at"] = DateTime.UtcNow.ToString("o");
-
-            // Set event_type if it doesn't exist
-            helikaEvent["event_type"] = eventName;
-
-            eventProps["sessionID"] = _sessionID;
-            if (!string.IsNullOrWhiteSpace(_playerID))
-            {
-                eventProps["player_id"] = _playerID;
-            }
-
-            helikaEvent["event"] = eventProps;
-
-
             Dictionary<string, object> finalEvent = new Dictionary<string, object>();
             finalEvent["id"] = _sessionID;
-            finalEvent["events"] = new Dictionary<string, object>[] { helikaEvent };
+            finalEvent["events"] = new Dictionary<string, object>[] { AppendAttributesToDictionary(eventName, eventProps) };
 
             JObject serializedEvt = JObject.FromObject(finalEvent);
             return await PostAsync("/game/game-event", serializedEvt.ToString());
@@ -136,31 +116,13 @@ namespace Helika
             {
                 throw new Exception("Event Manager is not yet initialized");
             }
+
             // Add helika-specific data to the events
             List<Dictionary<string, object>> events = new List<Dictionary<string, object>> { };
             foreach (Dictionary<string, object> eventProps in eventsProps)
             {
-                Dictionary<string, object> helikaEvent = new Dictionary<string, object>()
-                {
-                    // Add game_id only if the event doesn't already have it
-                    {"game_id", _gameId},
-                    // Convert to ISO 8601 format string using "o" specifier
-                    {"created_at", DateTime.UtcNow.ToString("o")},
-                    // Set event_type
-                    {"event_type", eventName},
-                };
-
-                eventProps["sessionID"] = _sessionID;
-                if (!string.IsNullOrWhiteSpace(_playerID))
-                {
-                    eventProps["player_id"] = _playerID;
-                }
-
-                helikaEvent["event"] = eventProps;
-
-                events.Add(helikaEvent);
+                events.Add(AppendAttributesToDictionary(eventName, eventProps));
             }
-
 
             Dictionary<string, object> finalEvent = new Dictionary<string, object>();
             finalEvent["id"] = _sessionID;
@@ -177,37 +139,9 @@ namespace Helika
                 throw new Exception("Event Manager is not yet initialized");
             }
 
-            // Add game_id only if the event doesn't already have it
-            AddIfNull(eventProps, "game_id", _gameId);
-
-            // Convert to ISO 8601 format string using "o" specifier
-            AddOrReplace(eventProps, "created_at", DateTime.UtcNow.ToString("o"));
-
-            if (!eventProps.ContainsKey("event_type") || string.IsNullOrWhiteSpace(eventProps.GetValue("event_type").ToString()))
-            {
-                throw new ArgumentException("Invalid Event: Missing 'event_type' field");
-            }
-
-            if (!eventProps.ContainsKey("event"))
-            {
-                eventProps.Add(new JProperty("event", new JObject()));
-            }
-
-            if (eventProps.GetValue("event").GetType() != typeof(Newtonsoft.Json.Linq.JObject))
-            {
-                throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
-            }
-
-            JObject internalEvent = (JObject)eventProps.GetValue("event");
-            AddOrReplace(internalEvent, "sessionID", _sessionID);
-            if (!string.IsNullOrWhiteSpace(_playerID))
-            {
-                AddOrReplace(internalEvent, "player_id", _playerID);
-            }
-
             JObject newEvent = new JObject(
                 new JProperty("id", _sessionID),
-                new JProperty("events", new JArray() { eventProps })
+                new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps) })
             );
             return await PostAsync("/game/game-event", newEvent.ToString());
         }
@@ -223,35 +157,7 @@ namespace Helika
             JArray jarrayObj = new JArray();
             foreach (JObject eventProp in eventsProps)
             {
-                // Add game_id only if the event doesn't already have it
-                AddIfNull(eventProp, "game_id", _gameId);
-
-                // Convert to ISO 8601 format string using "o" specifier
-                AddOrReplace(eventProp, "created_at", DateTime.UtcNow.ToString("o"));
-
-                if (!eventProp.ContainsKey("event_type") || string.IsNullOrWhiteSpace(eventProp.GetValue("event_type").ToString()))
-                {
-                    throw new ArgumentException("Invalid Event: Missing 'event_type' field");
-                }
-
-                if (!eventProp.ContainsKey("event"))
-                {
-                    eventProp.Add(new JProperty("event", new JObject()));
-                }
-
-                if (eventProp.GetValue("event").GetType() != typeof(Newtonsoft.Json.Linq.JObject))
-                {
-                    throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
-                }
-
-                JObject internalEvent = (JObject)eventProp.GetValue("event");
-                AddOrReplace(internalEvent, "sessionID", _sessionID);
-
-                if (!string.IsNullOrWhiteSpace(_playerID))
-                {
-                    AddOrReplace(internalEvent, "player_id", _playerID);
-                }
-                jarrayObj.Add(eventProp);
+                jarrayObj.Add(AppendAttributesToJObject(eventProp));
             }
 
             JObject newEvent = new JObject(
@@ -274,6 +180,63 @@ namespace Helika
         public void SetPlayerID(string playerID)
         {
             _playerID = playerID;
+        }
+
+        private JObject AppendAttributesToJObject(JObject obj)
+        {
+            // Add game_id only if the event doesn't already have it
+            AddIfNull(obj, "game_id", _gameId);
+
+            // Convert to ISO 8601 format string using "o" specifier
+            AddOrReplace(obj, "created_at", DateTime.UtcNow.ToString("o"));
+
+            if (!obj.ContainsKey("event_type") || string.IsNullOrWhiteSpace(obj.GetValue("event_type").ToString()))
+            {
+                throw new ArgumentException("Invalid Event: Missing 'event_type' field");
+            }
+
+            if (!obj.ContainsKey("event"))
+            {
+                obj.Add(new JProperty("event", new JObject()));
+            }
+
+            if (obj.GetValue("event").GetType() != typeof(Newtonsoft.Json.Linq.JObject))
+            {
+                throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
+            }
+
+            JObject internalEvent = (JObject)obj.GetValue("event");
+            AddOrReplace(internalEvent, "sessionID", _sessionID);
+
+            if (!string.IsNullOrWhiteSpace(_playerID))
+            {
+                AddOrReplace(internalEvent, "player_id", _playerID);
+            }
+
+            return obj;
+        }
+
+        private Dictionary<string, object> AppendAttributesToDictionary(string eventName, Dictionary<string, object> eventProps)
+        {
+            Dictionary<string, object> helikaEvent = new Dictionary<string, object>()
+            {
+                // Add game_id only if the event doesn't already have it
+                {"game_id", _gameId},
+                // Convert to ISO 8601 format string using "o" specifier
+                {"created_at", DateTime.UtcNow.ToString("o")},
+                // Set event_type
+                {"event_type", eventName},
+            };
+
+            eventProps["sessionID"] = _sessionID;
+            if (!string.IsNullOrWhiteSpace(_playerID))
+            {
+                eventProps["player_id"] = _playerID;
+            }
+
+            helikaEvent["event"] = eventProps;
+
+            return helikaEvent;
         }
 
         private async Task<string> CreateSession()

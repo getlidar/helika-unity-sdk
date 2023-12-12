@@ -25,7 +25,6 @@ namespace Helika
             eventManager.SetPlayerID(playerId);
         }
 
-
         // async void Update()
         // {
         //     if (Input.GetKeyDown("space"))
