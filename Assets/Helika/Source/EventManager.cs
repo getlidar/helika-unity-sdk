@@ -33,6 +33,9 @@ namespace Helika
 
         protected bool _enabled = false;
 
+        public bool iosAttAuthorizationAutoRequest = true;
+        public double iosAttAuthorizationWaitTime = 30;
+
         public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
         {
             if (_isInitialized)
@@ -71,8 +74,8 @@ namespace Helika
 
 #if UNITY_IOS
                 KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
-                KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(true);
-                KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(30);
+                KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(iosAttAuthorizationAutoRequest);
+                KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(iosAttAuthorizationWaitTime);
 #endif
 
                 KochavaTracker.Instance.Start();
