@@ -296,6 +296,11 @@ namespace Helika
                 {
                     // Display the error
                     Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
+                    if (request.responseCode == 401)
+                    {
+                        Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
+                        _isInitialized = false;
+                    }
                 }
                 return request.downloadHandler.text;
             }
