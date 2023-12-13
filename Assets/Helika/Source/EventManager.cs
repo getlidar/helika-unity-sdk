@@ -246,7 +246,7 @@ namespace Helika
         {
             JObject createSessionEvent = new JObject(
                 new JProperty("game_id", _gameId),
-                new JProperty("event_type", "SESSION_CREATED"),
+                new JProperty("event_type", "session_created"),
                 new JProperty("created_at", DateTime.UtcNow.ToString("o")),
                 new JProperty("event", new JObject(
                     new JProperty("sessionID", _sessionID),
