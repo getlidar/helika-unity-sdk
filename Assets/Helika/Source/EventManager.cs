@@ -246,7 +246,7 @@ namespace Helika
         {
             JObject createSessionEvent = new JObject(
                 new JProperty("game_id", _gameId),
-                new JProperty("event_type", "SESSION_CREATED"),
+                new JProperty("event_type", "session_created"),
                 new JProperty("created_at", DateTime.UtcNow.ToString("o")),
                 new JProperty("event", new JObject(
                     new JProperty("sessionID", _sessionID),
@@ -254,6 +254,7 @@ namespace Helika
                     new JProperty("sdk_name", SdkName),
                     new JProperty("sdk_version", SdkVersion),
                     new JProperty("sdk_class", SdkClass),
+                    new JProperty("sdk_platform", Application.platform.ToString()),
                     new JProperty("kochava_device_id", _deviceId)
                 ))
             );
@@ -295,6 +296,11 @@ namespace Helika
                 {
                     // Display the error
                     Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
+                    if (request.responseCode == 401)
+                    {
+                        Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
+                        _isInitialized = false;
+                    }
                 }
                 return request.downloadHandler.text;
             }
