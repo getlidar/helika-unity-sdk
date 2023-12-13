@@ -18,19 +18,38 @@ namespace Helika
         private EventManager eventManager;
         public string playerId;
 
-        void Start()
+        async Task Start()
         {
             eventManager = EventManager.Instance;
-            eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
+            await eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
             eventManager.SetPlayerID(playerId);
         }
-
 
         // async void Update()
         // {
         //     if (Input.GetKeyDown("space"))
         //     {
-        //         // This is an example of how to send an event
+        //         // This is an example of sending a single event
+        //         Dictionary<string, object> dictionary = new Dictionary<string, object>
+        //         {
+        //             { "key1", 1 },
+        //             { "key2", "value2" },
+        //             { "key3", "value3" }
+        //         };
+        //         await eventManager.SendEvent("single_event", dictionary);
+
+        //         // This is an example of sending multiples of a single event
+        //         Dictionary<string, object> evt1 = new Dictionary<string, object>
+        //         {
+        //             { "key1", "Event 1" },
+        //         };
+        //         Dictionary<string, object> evt2 = new Dictionary<string, object>
+        //         {
+        //             { "key1", "Event 1" },
+        //         };
+        //         await eventManager.SendEvents("multiple_events", new Dictionary<string, object>[] { evt1, evt2 });
+
+        //         // This is an example of how to send multiple unique events 
         //         JObject startEvent = new JObject(
         //             new JProperty("event_type", "start_event"),
         //             new JProperty("event", new JObject(
@@ -39,9 +58,11 @@ namespace Helika
         //                 new JProperty("email", "john@doe.com")
         //             ))
         //         );
+        //         // This event has no 'event' data. We automatically generate it.
         //         JObject middleEvent = new JObject(
         //             new JProperty("event_type", "no_event")
         //         );
+        //         // This event overwrites the `game_id` field
         //         JObject endEvent = new JObject(
         //             new JProperty("game_id", "Override Project"),
         //             new JProperty("event_type", "end_event"),
@@ -49,8 +70,8 @@ namespace Helika
         //                 new JProperty("user_id", 10)
         //             ))
         //         );
-        //         JObject[] testEvents = new JObject[] { startEvent, middleEvent, endEvent };
-        //         await eventManager.SendEvent(testEvents);
+        //         JObject[] uniqueEvents = new JObject[] { startEvent, middleEvent, endEvent };
+        //         await eventManager.SendEvents(uniqueEvents);
         //     }
         // }
     }
