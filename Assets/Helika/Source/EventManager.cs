@@ -135,7 +135,7 @@ namespace Helika
             return await PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public async Task<string> SendEvent(JObject eventProps)
+        public async Task<string> SendCustomEvent(JObject eventProps)
         {
             if (!_isInitialized)
             {
@@ -149,7 +149,7 @@ namespace Helika
             return await PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public async Task<string> SendEvents(JObject[] eventsProps)
+        public async Task<string> SendCustomEvents(JObject[] eventsProps)
         {
             if (!_isInitialized)
             {
