@@ -32,24 +32,29 @@ namespace Helika
         //         // This is an example of sending a single event
         //         Dictionary<string, object> dictionary = new Dictionary<string, object>
         //         {
-        //             { "key1", 1 },
-        //             { "key2", "value2" },
-        //             { "key3", "value3" }
+        //             { "user_id", 10 },
+        //             { "wallet_address", "0x8540507642419A0A8Af94Ba127F175dA090B58B0" }
         //         };
-        //         await eventManager.SendEvent("single_event", dictionary);
+        //         await eventManager.SendEvent("connect_wallet", dictionary);
 
         //         // This is an example of sending multiples of a single event
         //         Dictionary<string, object> evt1 = new Dictionary<string, object>
         //         {
-        //             { "key1", "Event 1" },
+        //             { "user_id", 10 },
+        //             { "source", "win" }
+        //             { "points", 15 }
         //         };
         //         Dictionary<string, object> evt2 = new Dictionary<string, object>
         //         {
-        //             { "key1", "Event 1" },
+        //             { "user_id", 10 },
+        //             { "source", "top_3_player" }
+        //             { "points", 5 }
         //         };
-        //         await eventManager.SendEvents("multiple_events", new Dictionary<string, object>[] { evt1, evt2 });
+        //         await eventManager.SendEvents("add_points", new Dictionary<string, object>[] { evt1, evt2 });
 
-        //         // This is an example of how to send multiple unique events 
+        //         // If you'd like to send a whole game events and overwrite automatically added properties like 'game_id', 
+        //         // you can use the EventManager.SendCustomEvent() and EventManager.SendCustomEvents().
+        //         // !! Note: Most of the time, you should only use EventManager.SendEvent() and EventManager.SendEvents().
         //         JObject startEvent = new JObject(
         //             new JProperty("event_type", "start_event"),
         //             new JProperty("event", new JObject(
@@ -71,7 +76,7 @@ namespace Helika
         //             ))
         //         );
         //         JObject[] uniqueEvents = new JObject[] { startEvent, middleEvent, endEvent };
-        //         await eventManager.SendEvents(uniqueEvents);
+        //         await eventManager.SendCustomEvents(uniqueEvents);
         //     }
         // }
     }
