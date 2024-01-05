@@ -256,7 +256,7 @@ namespace Helika
                     new JProperty("sdk_class", SdkClass),
                     new JProperty("sdk_platform", Application.platform.ToString()),
                     new JProperty("kochava_device_id", _deviceId),
-                    new JProperty("event_sub_type", "session_created"),
+                    new JProperty("event_sub_type", "session_created")
                 ))
             );
 
