@@ -17,7 +17,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.1.3";
+        private const string SdkVersion = "0.1.4";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
@@ -135,7 +135,7 @@ namespace Helika
             return await PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public async Task<string> SendEvent(JObject eventProps)
+        public async Task<string> SendCustomEvent(JObject eventProps)
         {
             if (!_isInitialized)
             {
@@ -149,7 +149,7 @@ namespace Helika
             return await PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public async Task<string> SendEvents(JObject[] eventsProps)
+        public async Task<string> SendCustomEvents(JObject[] eventsProps)
         {
             if (!_isInitialized)
             {
@@ -209,7 +209,7 @@ namespace Helika
             }
 
             JObject internalEvent = (JObject)obj.GetValue("event");
-            AddOrReplace(internalEvent, "sessionID", _sessionID);
+            AddOrReplace(internalEvent, "session_id", _sessionID);
 
             if (!string.IsNullOrWhiteSpace(_playerID))
             {
@@ -231,7 +231,7 @@ namespace Helika
                 {"event_type", eventName},
             };
 
-            eventProps["sessionID"] = _sessionID;
+            eventProps["session_id"] = _sessionID;
             if (!string.IsNullOrWhiteSpace(_playerID))
             {
                 eventProps["player_id"] = _playerID;
@@ -249,13 +249,14 @@ namespace Helika
                 new JProperty("event_type", "session_created"),
                 new JProperty("created_at", DateTime.UtcNow.ToString("o")),
                 new JProperty("event", new JObject(
-                    new JProperty("sessionID", _sessionID),
+                    new JProperty("session_id", _sessionID),
                     new JProperty("player_id", _playerID),
                     new JProperty("sdk_name", SdkName),
                     new JProperty("sdk_version", SdkVersion),
                     new JProperty("sdk_class", SdkClass),
                     new JProperty("sdk_platform", Application.platform.ToString()),
-                    new JProperty("kochava_device_id", _deviceId)
+                    new JProperty("kochava_device_id", _deviceId),
+                    new JProperty("event_sub_type", "session_created")
                 ))
             );
 
