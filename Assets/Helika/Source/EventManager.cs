@@ -44,7 +44,7 @@ namespace Helika
             }
 
             string[] apiKeys = apiKey.Split('.');
-            if (apiKeys.Length != 2)
+            if (apiKeys.Length < 1 || apiKeys.Length > 2)
             {
                 throw new ArgumentException("Invalid API Key");
             }
@@ -55,7 +55,10 @@ namespace Helika
             }
 
             _helikaApiKey = apiKeys[0];
-            _kochavaApiKey = apiKeys[1];
+            if (apiKeys.Length == 2)
+            {
+                _kochavaApiKey = apiKeys[1];
+            }
             _gameId = gameId;
             _baseUrl = ConvertUrl(env);
             _sessionID = Guid.NewGuid().ToString();
@@ -65,7 +68,7 @@ namespace Helika
             // If Localhost is set, force disable sending events
             _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
 
-            if (KochavaTracker.Instance != null)
+            if (!string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
             {
                 KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
 #if UNITY_ANDROID
@@ -93,7 +96,7 @@ namespace Helika
             }
             else
             {
-                // In case the KochavaTracker fails to initialized
+                // In case the Kochava key doesn't exist or KochavaTracker fails to initialized
                 await CreateSession();
             }
         }
@@ -255,6 +258,8 @@ namespace Helika
                     new JProperty("sdk_version", SdkVersion),
                     new JProperty("sdk_class", SdkClass),
                     new JProperty("sdk_platform", Application.platform.ToString()),
+                    new JProperty("kochava_app_guid", _kochavaApiKey),
+                    new JProperty("kochava_initialized", !string.IsNullOrEmpty(_kochavaApiKey)),
                     new JProperty("kochava_device_id", _deviceId),
                     new JProperty("event_sub_type", "session_created")
                 ))
