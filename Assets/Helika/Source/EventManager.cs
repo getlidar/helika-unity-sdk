@@ -17,7 +17,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.1.4";
+        private const string SdkVersion = "0.1.5";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
