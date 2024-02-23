@@ -33,10 +33,12 @@ namespace Helika
 
         protected bool _enabled = false;
 
+        protected bool _sendDeviceInfo = true;
+
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
 
-        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
+        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false, bool sendDeviceInfo = true)
         {
             if (_isInitialized)
             {
@@ -67,8 +69,9 @@ namespace Helika
 
             // If Localhost is set, force disable sending events
             _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
+            _sendDeviceInfo = sendDeviceInfo;
 
-            if (!string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
+            if (_sendDeviceInfo && !string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
             {
                 KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
 #if UNITY_ANDROID
@@ -247,29 +250,35 @@ namespace Helika
 
         private async Task<string> CreateSession()
         {
+            JObject internal_event = new JObject(
+                new JProperty("session_id", _sessionID),
+                new JProperty("player_id", _playerID),
+                new JProperty("sdk_name", SdkName),
+                new JProperty("sdk_version", SdkVersion),
+                new JProperty("sdk_class", SdkClass),
+                new JProperty("sdk_platform", Application.platform.ToString()),
+                new JProperty("event_sub_type", "session_created")
+            );
+
+            if (_sendDeviceInfo)
+            {
+                AddIfNull(internal_event, "kochava_app_guid", _kochavaApiKey);
+                AddIfNull(internal_event, "kochava_initialized", !string.IsNullOrEmpty(_kochavaApiKey));
+                AddIfNull(internal_event, "kochava_device_id", _deviceId);
+                AddIfNull(internal_event, "os", SystemInfo.operatingSystem);
+                AddIfNull(internal_event, "os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily));
+                AddIfNull(internal_event, "device_model", SystemInfo.deviceModel);
+                AddIfNull(internal_event, "device_name", SystemInfo.deviceName);
+                AddIfNull(internal_event, "device_type", GetDeviceType(SystemInfo.deviceType));
+                AddIfNull(internal_event, "device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier);
+                AddIfNull(internal_event, "device_processor_type", SystemInfo.processorType);
+            }
+
             JObject createSessionEvent = new JObject(
                 new JProperty("game_id", _gameId),
                 new JProperty("event_type", "session_created"),
                 new JProperty("created_at", DateTime.UtcNow.ToString("o")),
-                new JProperty("event", new JObject(
-                    new JProperty("session_id", _sessionID),
-                    new JProperty("player_id", _playerID),
-                    new JProperty("sdk_name", SdkName),
-                    new JProperty("sdk_version", SdkVersion),
-                    new JProperty("sdk_class", SdkClass),
-                    new JProperty("sdk_platform", Application.platform.ToString()),
-                    new JProperty("kochava_app_guid", _kochavaApiKey),
-                    new JProperty("kochava_initialized", !string.IsNullOrEmpty(_kochavaApiKey)),
-                    new JProperty("kochava_device_id", _deviceId),
-                    new JProperty("event_sub_type", "session_created"),
-                    new JProperty("os", SystemInfo.operatingSystem),
-                    new JProperty("os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily)),
-                    new JProperty("device_model", SystemInfo.deviceModel),
-                    new JProperty("device_name", SystemInfo.deviceName),
-                    new JProperty("device_type", GetDeviceType(SystemInfo.deviceType)),
-                    new JProperty("device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier),
-                    new JProperty("device_processor_type", SystemInfo.processorType)
-                ))
+                new JProperty("event", internal_event)
             );
 
             JObject evt = new JObject(
