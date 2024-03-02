@@ -14,14 +14,15 @@ namespace Helika
         public string apiKey;
         public string gameId;
         public HelikaEnvironment helikaEnv = HelikaEnvironment.Localhost;
-        public bool sendingEvents = false;
+        public TelemetryLevel telemetry = TelemetryLevel.None;
+        public bool printEventsOnly = true;
         private EventManager eventManager;
         public string playerId;
 
         async Task Start()
         {
             eventManager = EventManager.Instance;
-            await eventManager.Init(apiKey, gameId, helikaEnv, sendingEvents);
+            await eventManager.Init(apiKey, gameId, helikaEnv, telemetry, printEventsOnly);
             eventManager.SetPlayerID(playerId);
         }
 
@@ -41,13 +42,13 @@ namespace Helika
         //         Dictionary<string, object> evt1 = new Dictionary<string, object>
         //         {
         //             { "user_id", 10 },
-        //             { "source", "win" }
+        //             { "source", "win" },
         //             { "points", 15 }
         //         };
         //         Dictionary<string, object> evt2 = new Dictionary<string, object>
         //         {
         //             { "user_id", 10 },
-        //             { "source", "top_3_player" }
+        //             { "source", "top_3_player" },
         //             { "points", 5 }
         //         };
         //         await eventManager.SendEvents("add_points", new Dictionary<string, object>[] { evt1, evt2 });

@@ -17,7 +17,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.1.6";
+        private const string SdkVersion = "0.2.0";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
@@ -26,19 +26,14 @@ namespace Helika
         protected string _gameId;
         protected string _sessionID;
         protected bool _isInitialized = false;
-
         protected string _playerID;
-
         protected string _deviceId;
-
-        protected bool _enabled = false;
-
-        protected bool _sendDeviceInfo = true;
-
+        protected bool _printEventsOnly = false;
+        protected TelemetryLevel _telemetry = TelemetryLevel.All;
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
 
-        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false, bool sendDeviceInfo = true)
+        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsOnly = false)
         {
             if (_isInitialized)
             {
@@ -67,40 +62,46 @@ namespace Helika
 
             _isInitialized = true;
 
-            // If Localhost is set, force disable sending events
-            _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
-            _sendDeviceInfo = sendDeviceInfo;
+            // If Localhost is set, force print events
+            _printEventsOnly = printEventsOnly;
+            _telemetry = env != HelikaEnvironment.Localhost ? telemetryLevel : TelemetryLevel.None;
 
-            if (_sendDeviceInfo && !string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
+            if (_telemetry > TelemetryLevel.None)
             {
-                KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
+                // TelemetryOnly means we shouldn't initialize Kochava
+                if (_telemetry > TelemetryLevel.TelemetryOnly &&
+                    !string.IsNullOrEmpty(_kochavaApiKey) &&
+                    KochavaTracker.Instance != null)
+                {
+                    KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
 #if UNITY_ANDROID
-                KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
+                    KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
 #endif
 
 #if UNITY_IOS
-                KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
-                KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(iosAttAuthorizationAutoRequest);
-                KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(iosAttAuthorizationWaitTime);
+                    KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
+                    KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(iosAttAuthorizationAutoRequest);
+                    KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(iosAttAuthorizationWaitTime);
 #endif
 
-                KochavaTracker.Instance.Start();
+                    KochavaTracker.Instance.Start();
 
-                // Send an event to store the Kochava device id
-                KochavaTracker.Instance.GetDeviceId((deviceId) =>
-                {
-                    this._deviceId = deviceId;
+                    // Send an event to store the Kochava device id
+                    KochavaTracker.Instance.GetDeviceId((deviceId) =>
+                    {
+                        this._deviceId = deviceId;
 
 #pragma warning disable CS4014
-                    // Fire and forget generate a 'Create Session'
-                    CreateSession();
+                        // Fire and forget generate a 'Create Session'
+                        CreateSession();
 #pragma warning restore CS4014
-                });
-            }
-            else
-            {
-                // In case the Kochava key doesn't exist or KochavaTracker fails to initialized
-                await CreateSession();
+                    });
+                }
+                else
+                {
+                    // In case the Kochava key doesn't exist or KochavaTracker fails to initialized
+                    await CreateSession();
+                }
             }
         }
 
@@ -176,9 +177,9 @@ namespace Helika
             return await PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public void SetEnableEvents(bool enabled)
+        public void SetPrintEventsOnly(bool enabled)
         {
-            _enabled = enabled;
+            _printEventsOnly = enabled;
         }
 
         public string GetPlayerID()
@@ -260,10 +261,12 @@ namespace Helika
                 new JProperty("event_sub_type", "session_created")
             );
 
-            if (_sendDeviceInfo)
+            // TelemetryOnly means not sending Kochava, Device, and OS information
+            if ((int)_telemetry > (int)TelemetryLevel.TelemetryOnly)
             {
+                bool isInitialized = !string.IsNullOrEmpty(_kochavaApiKey);
                 AddIfNull(internal_event, "kochava_app_guid", _kochavaApiKey);
-                AddIfNull(internal_event, "kochava_initialized", !string.IsNullOrEmpty(_kochavaApiKey));
+                AddIfNull(internal_event, "kochava_initialized", isInitialized.ToString());
                 AddIfNull(internal_event, "kochava_device_id", _deviceId);
                 AddIfNull(internal_event, "os", SystemInfo.operatingSystem);
                 AddIfNull(internal_event, "os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily));
@@ -292,40 +295,44 @@ namespace Helika
 
         private async Task<string> PostAsync(string url, string data)
         {
-            if (!_enabled)
+            if (_printEventsOnly)
             {
                 var message = "Event sent: " + data;
                 Debug.Log(message);
                 return message;
             }
 
-            using (UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST"))
+            if (_telemetry > TelemetryLevel.None)
             {
-                // Set the request method and content type
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.SetRequestHeader("x-api-key", _helikaApiKey);
-
-                // Convert the data to bytes and attach it to the request
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
-                request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
-
-                // Send the request
-                await request.SendWebRequest();
-
-                // Check for errors
-                if (request.result != UnityWebRequest.Result.Success)
+                using (UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST"))
                 {
-                    // Display the error
-                    Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
-                    if (request.responseCode == 401)
+                    // Set the request method and content type
+                    request.SetRequestHeader("Content-Type", "application/json");
+                    request.SetRequestHeader("x-api-key", _helikaApiKey);
+
+                    // Convert the data to bytes and attach it to the request
+                    byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
+                    request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
+                    request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+
+                    // Send the request
+                    await request.SendWebRequest();
+
+                    // Check for errors
+                    if (request.result != UnityWebRequest.Result.Success)
                     {
-                        Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
-                        _isInitialized = false;
+                        // Display the error
+                        Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
+                        if (request.responseCode == 401)
+                        {
+                            Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
+                            _isInitialized = false;
+                        }
                     }
+                    return request.downloadHandler.text;
                 }
-                return request.downloadHandler.text;
             }
+            return "";
         }
 
         private static void AddIfNull(JObject helikaEvent, string key, string newValue)
