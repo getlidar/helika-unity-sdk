@@ -25,17 +25,14 @@ namespace Helika
         protected string _gameId;
         protected string _sessionID;
         protected bool _isInitialized = false;
-
         protected string _playerID;
-
         protected string _deviceId;
-
-        protected bool _enabled = false;
-
+        protected bool _printEventsOnly = false;
+        protected TelemetryLevel _telemetry = TelemetryLevel.All;
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
 
-        public void Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
+        public void Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsOnly = false)
         {
             if (_isInitialized)
             {
@@ -64,18 +61,25 @@ namespace Helika
 
             _isInitialized = true;
 
-            // If Localhost is set, force disable sending events
-            _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
-            Debug.Log(_enabled ? "Events will be sent." : "Events will not be sent, and will only being printed in the console.");
+            // If Localhost is set, force print events
+            _printEventsOnly = printEventsOnly;
+            _telemetry = env != HelikaEnvironment.Localhost ? telemetryLevel : TelemetryLevel.None;
+            Debug.Log(_telemetry ? "Events will be sent." : "Events will not be sent, and will only being printed in the console.");
 
-            if (!string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
+            if (_telemetry > TelemetryLevel.None)
             {
-                InitializeKochava();
-            }
-            else
-            {
-                // In case the Kochava key doesn't exist or KochavaTracker fails to initialized
-                CreateSession();
+                // TelemetryOnly means we shouldn't initialize Kochava
+                if (_telemetry > TelemetryLevel.TelemetryOnly &&
+                    !string.IsNullOrEmpty(_kochavaApiKey) &&
+                    KochavaTracker.Instance != null)
+                {
+                    InitializeKochava();
+                }
+                else
+                {
+                    // In case the Kochava key doesn't exist or KochavaTracker fails to initialized
+                    CreateSession();
+                }
             }
         }
 
@@ -151,10 +155,10 @@ namespace Helika
             PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public void SetEnableEvents(bool enabled)
+        public void SetPrintEventsOnly(bool enabled)
         {
-            _enabled = enabled;
-            Debug.Log(_enabled ? "Events are now being sent." : "Events are now not being sent, only being printed in the console.");
+            _printEventsOnly = enabled;
+            Debug.Log(_printEventsOnly ? "Events are now being sent." : "Events are now not being sent, only being printed in the console.");
         }
 
         public string GetPlayerID()
@@ -226,29 +230,37 @@ namespace Helika
 
         private void CreateSession()
         {
+            JObject internal_event = new JObject(
+                new JProperty("session_id", _sessionID),
+                new JProperty("player_id", _playerID),
+                new JProperty("sdk_name", SdkName),
+                new JProperty("sdk_version", SdkVersion),
+                new JProperty("sdk_class", SdkClass),
+                new JProperty("sdk_platform", Application.platform.ToString()),
+                new JProperty("event_sub_type", "session_created")
+            );
+
+            // TelemetryOnly means not sending Kochava, Device, and OS information
+            if ((int)_telemetry > (int)TelemetryLevel.TelemetryOnly)
+            {
+                bool isInitialized = !string.IsNullOrEmpty(_kochavaApiKey);
+                AddIfNull(internal_event, "kochava_app_guid", _kochavaApiKey);
+                AddIfNull(internal_event, "kochava_initialized", isInitialized.ToString());
+                AddIfNull(internal_event, "kochava_device_id", _deviceId);
+                AddIfNull(internal_event, "os", SystemInfo.operatingSystem);
+                AddIfNull(internal_event, "os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily));
+                AddIfNull(internal_event, "device_model", SystemInfo.deviceModel);
+                AddIfNull(internal_event, "device_name", SystemInfo.deviceName);
+                AddIfNull(internal_event, "device_type", GetDeviceType(SystemInfo.deviceType));
+                AddIfNull(internal_event, "device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier);
+                AddIfNull(internal_event, "device_processor_type", SystemInfo.processorType);
+            }
+
             JObject createSessionEvent = new JObject(
                 new JProperty("game_id", _gameId),
                 new JProperty("event_type", "session_created"),
                 new JProperty("created_at", DateTime.UtcNow.ToString("o")),
-                new JProperty("event", new JObject(
-                    new JProperty("session_id", _sessionID),
-                    new JProperty("player_id", _playerID),
-                    new JProperty("sdk_name", SdkName),
-                    new JProperty("sdk_version", SdkVersion),
-                    new JProperty("sdk_class", SdkClass),
-                    new JProperty("sdk_platform", Application.platform.ToString()),
-                    new JProperty("kochava_app_guid", _kochavaApiKey),
-                    new JProperty("kochava_initialized", !string.IsNullOrEmpty(_kochavaApiKey)),
-                    new JProperty("kochava_device_id", _deviceId),
-                    new JProperty("event_sub_type", "session_created"),
-                    new JProperty("os", SystemInfo.operatingSystem),
-                    new JProperty("os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily)),
-                    new JProperty("device_model", SystemInfo.deviceModel),
-                    new JProperty("device_name", SystemInfo.deviceName),
-                    new JProperty("device_type", GetDeviceType(SystemInfo.deviceType)),
-                    new JProperty("device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier),
-                    new JProperty("device_processor_type", SystemInfo.processorType)
-                ))
+                new JProperty("event", internal_event)
             );
 
             JObject evt = new JObject(
@@ -262,43 +274,51 @@ namespace Helika
 
         private void PostAsync(string url, string data)
         {
-            if (!_enabled)
+            if (_printEventsOnly)
             {
                 var message = "Event (Log only): " + data;
                 Debug.Log(message);
                 return;
             }
 
-            UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
+            if (_telemetry > TelemetryLevel.None) {
+                UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
 
-            // Set the request method and content type
-            request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("x-api-key", _helikaApiKey);
+                // Set the request method and content type
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.SetRequestHeader("x-api-key", _helikaApiKey);
 
 
-            // Convert the data to bytes and attach it to the request
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
-            request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+                // Convert the data to bytes and attach it to the request
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
+                request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
 
-            // Send the request asynchronously
-            request.SendWebRequest().completed += (asyncOperation) =>
-            {
-                // Check for errors
-                if (request.result != UnityWebRequest.Result.Success)
+                // Send the request asynchronously
+                request.SendWebRequest().completed += (asyncOperation) =>
                 {
-                    // Display the error
-                    Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
-                    if (request.responseCode == 401)
+                    // Check for errors
+                    if (request.result != UnityWebRequest.Result.Success)
                     {
-                        Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
-                        _isInitialized = false;
+                        // Display the error
+                        Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
+                        if (request.responseCode == 401)
+                        {
+                            // Display the error
+                            Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
+                            if (request.responseCode == 401)
+                            {
+                                Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
+                                _isInitialized = false;
+                            }
+                        }
+                        return request.downloadHandler.text;
                     }
-                }
 
-                // Clean up resources
-                request.Dispose();
-            };
+                    // Clean up resources
+                    request.Dispose();
+                };
+            }
         }
 
         private void InitializeKochava()

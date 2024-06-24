@@ -331,7 +331,8 @@ MonoBehaviour:
   apiKey: 4b22e2a34e2c95d9b46668a702ead7.kohelika-test-molp8ydo
   gameId: GameTest
   helikaEnv: 0
-  sendingEvents: 0
+  telemetry: 200
+  printEventsOnly: 1
   playerId: 
 --- !u!4 &1452081451
 Transform:
