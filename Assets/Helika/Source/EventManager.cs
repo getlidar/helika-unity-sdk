@@ -66,7 +66,6 @@ namespace Helika
 
             // If PrintEventsToConsole is set to true, we only print the event to console and we don't send it
             _printEventsToConsole = printEventsToConsole;
-            Debug.Log(_printEventsToConsole ? "[Helika] Events will only be printed in the console, not sent to the server" : "[Helika] Events will be sent to the server");
 
             if (_telemetry > TelemetryLevel.None)
             {
@@ -160,7 +159,6 @@ namespace Helika
         public void SetPrintToConsole(bool printToConsole)
         {
             _printEventsToConsole = printToConsole;
-            Debug.Log(_printEventsToConsole ? "[Helika] Events are now only being printed in the console, not sent to the server" : "[Helika] Events are now being sent ti the server");
         }
 
         public string GetPlayerID()
@@ -279,7 +277,7 @@ namespace Helika
         {
             if (_printEventsToConsole)
             {
-                var message = "[Helika] Event (Log only): " + data;
+                var message = "[Helika] Event:" + data;
                 Debug.Log(message);
             }
 
