@@ -328,7 +328,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a6cc832c4449a645be9a225e30146c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiKey: cfaab9478634bcb7ac6446338c81ff.kohelika-test-molp8ydo
+  apiKey: 
   gameId: GameTest
   helikaEnv: 0
   telemetry: 100
