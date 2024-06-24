@@ -67,6 +67,7 @@ namespace Helika
 
             // If Localhost is set, force disable sending events
             _enabled = env != HelikaEnvironment.Localhost ? enabled : false;
+            Debug.Log(_enabled ? "Events will be sent." : "Events will not be sent, and will only being printed in the console.");
 
             if (!string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
             {
@@ -176,6 +177,7 @@ namespace Helika
         public void SetEnableEvents(bool enabled)
         {
             _enabled = enabled;
+            Debug.Log(_enabled ? "Events are now being sent." : "Events are now not being sent, only being printed in the console.");
         }
 
         public string GetPlayerID()
@@ -285,7 +287,7 @@ namespace Helika
         {
             if (!_enabled)
             {
-                var message = "Event sent: " + data;
+                var message = "Event (Log only): " + data;
                 Debug.Log(message);
                 return message;
             }
