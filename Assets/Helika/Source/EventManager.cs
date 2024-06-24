@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
 using System.Numerics;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -17,7 +16,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.1.6";
+        private const string SdkVersion = "0.2.0";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
@@ -36,7 +35,7 @@ namespace Helika
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
 
-        public async Task Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
+        public void Init(string apiKey, string gameId, HelikaEnvironment env, bool enabled = false)
         {
             if (_isInitialized)
             {
@@ -70,38 +69,16 @@ namespace Helika
 
             if (!string.IsNullOrEmpty(_kochavaApiKey) && KochavaTracker.Instance != null)
             {
-                KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
-#if UNITY_ANDROID
-                KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
-#endif
-
-#if UNITY_IOS
-                KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
-                KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(iosAttAuthorizationAutoRequest);
-                KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(iosAttAuthorizationWaitTime);
-#endif
-
-                KochavaTracker.Instance.Start();
-
-                // Send an event to store the Kochava device id
-                KochavaTracker.Instance.GetDeviceId((deviceId) =>
-                {
-                    this._deviceId = deviceId;
-
-#pragma warning disable CS4014
-                    // Fire and forget generate a 'Create Session'
-                    CreateSession();
-#pragma warning restore CS4014
-                });
+                InitializeKochava();
             }
             else
             {
                 // In case the Kochava key doesn't exist or KochavaTracker fails to initialized
-                await CreateSession();
+                CreateSession();
             }
         }
 
-        public async Task<string> SendEvent(string eventName, Dictionary<string, object> eventProps)
+        public void SendEvent(string eventName, Dictionary<string, object> eventProps)
         {
             if (!_isInitialized)
             {
@@ -113,10 +90,10 @@ namespace Helika
             finalEvent["events"] = new Dictionary<string, object>[] { AppendAttributesToDictionary(eventName, eventProps) };
 
             JObject serializedEvt = JObject.FromObject(finalEvent);
-            return await PostAsync("/game/game-event", serializedEvt.ToString());
+            PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public async Task<string> SendEvents(string eventName, Dictionary<string, object>[] eventsProps)
+        public void SendEvents(string eventName, Dictionary<string, object>[] eventsProps)
         {
             if (!_isInitialized)
             {
@@ -135,10 +112,10 @@ namespace Helika
             finalEvent["events"] = events.ToArray();
 
             JObject serializedEvt = JObject.FromObject(finalEvent);
-            return await PostAsync("/game/game-event", serializedEvt.ToString());
+            PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public async Task<string> SendCustomEvent(JObject eventProps)
+        public void SendCustomEvent(JObject eventProps)
         {
             if (!_isInitialized)
             {
@@ -149,10 +126,10 @@ namespace Helika
                 new JProperty("id", _sessionID),
                 new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps) })
             );
-            return await PostAsync("/game/game-event", newEvent.ToString());
+            PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public async Task<string> SendCustomEvents(JObject[] eventsProps)
+        public void SendCustomEvents(JObject[] eventsProps)
         {
             if (!_isInitialized)
             {
@@ -170,7 +147,7 @@ namespace Helika
                 new JProperty("id", _sessionID),
                 new JProperty("events", jarrayObj)
             );
-            return await PostAsync("/game/game-event", newEvent.ToString());
+            PostAsync("/game/game-event", newEvent.ToString());
         }
 
         public void SetEnableEvents(bool enabled)
@@ -245,7 +222,7 @@ namespace Helika
             return helikaEvent;
         }
 
-        private async Task<string> CreateSession()
+        private void CreateSession()
         {
             JObject createSessionEvent = new JObject(
                 new JProperty("game_id", _gameId),
@@ -278,32 +255,33 @@ namespace Helika
             );
 
             // Asynchronous send event
-            return await PostAsync("/game/game-event", evt.ToString());
+            PostAsync("/game/game-event", evt.ToString());
         }
 
-        private async Task<string> PostAsync(string url, string data)
+        private void PostAsync(string url, string data)
         {
             if (!_enabled)
             {
                 var message = "Event sent: " + data;
                 Debug.Log(message);
-                return message;
+                return;
             }
 
-            using (UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST"))
+            UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
+
+            // Set the request method and content type
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.SetRequestHeader("x-api-key", _helikaApiKey);
+
+
+            // Convert the data to bytes and attach it to the request
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
+            request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+
+            // Send the request asynchronously
+            request.SendWebRequest().completed += (asyncOperation) =>
             {
-                // Set the request method and content type
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.SetRequestHeader("x-api-key", _helikaApiKey);
-
-                // Convert the data to bytes and attach it to the request
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
-                request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
-
-                // Send the request
-                await request.SendWebRequest();
-
                 // Check for errors
                 if (request.result != UnityWebRequest.Result.Success)
                 {
@@ -315,8 +293,37 @@ namespace Helika
                         _isInitialized = false;
                     }
                 }
-                return request.downloadHandler.text;
-            }
+
+                // Clean up resources
+                request.Dispose();
+            };
+        }
+
+        private void InitializeKochava()
+        {
+            KochavaTracker.Instance.RegisterEditorAppGuid(_kochavaApiKey);
+#if UNITY_ANDROID
+            KochavaTracker.Instance.RegisterAndroidAppGuid(_kochavaApiKey);
+#endif
+
+#if UNITY_IOS
+            KochavaTracker.Instance.RegisterIosAppGuid(_kochavaApiKey);
+            KochavaTracker.Instance.SetIosAttAuthorizationAutoRequest(iosAttAuthorizationAutoRequest);
+            KochavaTracker.Instance.SetIosAttAuthorizationWaitTime(iosAttAuthorizationWaitTime);
+#endif
+
+            KochavaTracker.Instance.Start();
+
+            // Send an event to store the Kochava device id
+            KochavaTracker.Instance.GetDeviceId((deviceId) =>
+            {
+                this._deviceId = deviceId;
+
+#pragma warning disable CS4014
+                // Fire and forget generate a 'Create Session'
+                CreateSession();
+#pragma warning restore CS4014
+            });
         }
 
         private static void AddIfNull(JObject helikaEvent, string key, string newValue)
