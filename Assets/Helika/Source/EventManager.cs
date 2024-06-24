@@ -27,12 +27,12 @@ namespace Helika
         protected bool _isInitialized = false;
         protected string _playerID;
         protected string _deviceId;
-        protected bool _printEventsOnly = false;
+        protected bool _printEventsToConsole = false;
         protected TelemetryLevel _telemetry = TelemetryLevel.All;
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
 
-        public void Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsOnly = false)
+        public void Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsToConsole = false)
         {
             if (_isInitialized)
             {
@@ -62,9 +62,11 @@ namespace Helika
             _isInitialized = true;
 
             // If Localhost is set, force print events
-            _printEventsOnly = printEventsOnly;
             _telemetry = env != HelikaEnvironment.Localhost ? telemetryLevel : TelemetryLevel.None;
-            Debug.Log(_telemetry ? "Events will be sent." : "Events will not be sent, and will only being printed in the console.");
+
+            // If PrintEventsToConsole is set to true, we only print the event to console and we don't send it
+            _printEventsToConsole = printEventsToConsole;
+            Debug.Log(_printEventsToConsole ? "[Helika] Events will only be printed in the console, not sent to the server" : "[Helika] Events will be sent to the server");
 
             if (_telemetry > TelemetryLevel.None)
             {
@@ -155,10 +157,10 @@ namespace Helika
             PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public void SetPrintEventsOnly(bool enabled)
+        public void SetPrintToConsole(bool printToConsole)
         {
-            _printEventsOnly = enabled;
-            Debug.Log(_printEventsOnly ? "Events are now being sent." : "Events are now not being sent, only being printed in the console.");
+            _printEventsToConsole = printToConsole;
+            Debug.Log(_printEventsToConsole ? "[Helika] Events are now only being printed in the console, not sent to the server" : "[Helika] Events are now being sent ti the server");
         }
 
         public string GetPlayerID()
@@ -237,11 +239,12 @@ namespace Helika
                 new JProperty("sdk_version", SdkVersion),
                 new JProperty("sdk_class", SdkClass),
                 new JProperty("sdk_platform", Application.platform.ToString()),
-                new JProperty("event_sub_type", "session_created")
+                new JProperty("event_sub_type", "session_created"),
+                new JProperty("telemetry_level", _telemetry.ToString())
             );
 
             // TelemetryOnly means not sending Kochava, Device, and OS information
-            if ((int)_telemetry > (int)TelemetryLevel.TelemetryOnly)
+            if (_telemetry > TelemetryLevel.TelemetryOnly)
             {
                 bool isInitialized = !string.IsNullOrEmpty(_kochavaApiKey);
                 AddIfNull(internal_event, "kochava_app_guid", _kochavaApiKey);
@@ -274,20 +277,19 @@ namespace Helika
 
         private void PostAsync(string url, string data)
         {
-            if (_printEventsOnly)
+            if (_printEventsToConsole)
             {
-                var message = "Event (Log only): " + data;
+                var message = "[Helika] Event (Log only): " + data;
                 Debug.Log(message);
-                return;
             }
 
-            if (_telemetry > TelemetryLevel.None) {
+            if (_telemetry > TelemetryLevel.None)
+            {
                 UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
 
                 // Set the request method and content type
                 request.SetRequestHeader("Content-Type", "application/json");
                 request.SetRequestHeader("x-api-key", _helikaApiKey);
-
 
                 // Convert the data to bytes and attach it to the request
                 byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
@@ -304,15 +306,9 @@ namespace Helika
                         Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
                         if (request.responseCode == 401)
                         {
-                            // Display the error
-                            Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
-                            if (request.responseCode == 401)
-                            {
-                                Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
-                                _isInitialized = false;
-                            }
+                            Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
+                            _isInitialized = false;
                         }
-                        return request.downloadHandler.text;
                     }
 
                     // Clean up resources

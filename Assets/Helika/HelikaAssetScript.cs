@@ -15,14 +15,14 @@ namespace Helika
         public string gameId;
         public HelikaEnvironment helikaEnv = HelikaEnvironment.Localhost;
         public TelemetryLevel telemetry = TelemetryLevel.None;
-        public bool printEventsOnly = true;
+        public bool printEventsToConsole = true;
         private EventManager eventManager;
         public string playerId;
 
         void Start()
         {
             eventManager = EventManager.Instance;
-            eventManager.Init(apiKey, gameId, helikaEnv, telemetry, printEventsOnly);
+            eventManager.Init(apiKey, gameId, helikaEnv, telemetry, printEventsToConsole);
             eventManager.SetPlayerID(playerId);
         }
 
