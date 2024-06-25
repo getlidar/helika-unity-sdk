@@ -18,6 +18,7 @@ namespace Helika
         private const string SdkName = "Unity";
         private const string SdkVersion = "0.2.0";
         private const string SdkClass = "EventManager";
+        private DataSender _dataSender;
 
         private string _helikaApiKey;
         private string _kochavaApiKey;
@@ -66,6 +67,8 @@ namespace Helika
 
             // If PrintEventsToConsole is set to true, we only print the event to console and we don't send it
             _printEventsToConsole = printEventsToConsole;
+            _dataSender = FindObjectOfType<DataSender>();
+            _dataSender.SetHelikaApiKey(_helikaApiKey);
 
             if (_telemetry > TelemetryLevel.None)
             {
@@ -283,35 +286,7 @@ namespace Helika
 
             if (_telemetry > TelemetryLevel.None)
             {
-                UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
-
-                // Set the request method and content type
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.SetRequestHeader("x-api-key", _helikaApiKey);
-
-                // Convert the data to bytes and attach it to the request
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(data);
-                request.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
-
-                // Send the request asynchronously
-                request.SendWebRequest().completed += (asyncOperation) =>
-                {
-                    // Check for errors
-                    if (request.result != UnityWebRequest.Result.Success)
-                    {
-                        // Display the error
-                        Debug.LogError("Error: " + request.error + ", data: " + request.downloadHandler.text);
-                        if (request.responseCode == 401)
-                        {
-                            Debug.LogError("API Key is invalid. Disabling Sending Messages. Please reach out to Helika Support to request a valid API key.");
-                            _isInitialized = false;
-                        }
-                    }
-
-                    // Clean up resources
-                    request.Dispose();
-                };
+                _dataSender.SendData(_baseUrl + url, data);
             }
         }
 
