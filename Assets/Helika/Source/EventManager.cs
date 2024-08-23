@@ -92,7 +92,7 @@ namespace Helika
             }
 
             Dictionary<string, object> finalEvent = new Dictionary<string, object>();
-            finalEvent["id"] = _sessionID;
+            finalEvent["id"] = Guid.NewGuid().ToString(); ;
             finalEvent["events"] = new Dictionary<string, object>[] { AppendAttributesToDictionary(eventName, eventProps) };
 
             JObject serializedEvt = JObject.FromObject(finalEvent);
@@ -114,7 +114,7 @@ namespace Helika
             }
 
             Dictionary<string, object> finalEvent = new Dictionary<string, object>();
-            finalEvent["id"] = _sessionID;
+            finalEvent["id"] = Guid.NewGuid().ToString(); ;
             finalEvent["events"] = events.ToArray();
 
             JObject serializedEvt = JObject.FromObject(finalEvent);
@@ -129,7 +129,7 @@ namespace Helika
             }
 
             JObject newEvent = new JObject(
-                new JProperty("id", _sessionID),
+                new JProperty("id", Guid.NewGuid().ToString();),
                 new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps) })
             );
             PostAsync("/game/game-event", newEvent.ToString());
@@ -150,7 +150,7 @@ namespace Helika
             }
 
             JObject newEvent = new JObject(
-                new JProperty("id", _sessionID),
+                new JProperty("id", Guid.NewGuid().ToString();),
                 new JProperty("events", jarrayObj)
             );
             PostAsync("/game/game-event", newEvent.ToString());
@@ -265,7 +265,7 @@ namespace Helika
             );
 
             JObject evt = new JObject(
-                new JProperty("id", _sessionID),
+                new JProperty("id", Guid.NewGuid().ToString();),
                 new JProperty("events", new JArray() { createSessionEvent })
             );
 
