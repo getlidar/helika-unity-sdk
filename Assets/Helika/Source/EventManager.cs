@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Numerics;
+using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.Networking;
 using Newtonsoft.Json;
@@ -16,7 +17,7 @@ namespace Helika
     {
         // Version data that is updated via a script. Do not change.
         private const string SdkName = "Unity";
-        private const string SdkVersion = "0.2.0";
+        private const string SdkVersion = "0.3.0";
         private const string SdkClass = "EventManager";
 
         private string _helikaApiKey;
@@ -31,6 +32,20 @@ namespace Helika
         protected TelemetryLevel _telemetry = TelemetryLevel.All;
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
+        protected bool _piITracking = true;
+        protected string _anonymous_id = "";
+        protected Dictionary<string, object> _appDetails = new Dictionary<string, object>{
+            { "platform_id", null },
+            { "client_app_version", null },
+            { "server_app_version", null },
+            { "store_id", null },
+            { "source_id", null }
+        };
+        protected Dictionary<string, object> _userDetails = new Dictionary<string, object>{
+            { "user_id", null },
+            { "email", null },
+            { "wallet", null }
+        };
 
         public void Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsToConsole = false)
         {
@@ -58,6 +73,7 @@ namespace Helika
             _gameId = gameId;
             _baseUrl = ConvertUrl(env);
             _sessionID = Guid.NewGuid().ToString();
+            _anonymous_id = GenerateAnonymousId(_sessionID, true);
 
             _isInitialized = true;
 
@@ -84,6 +100,48 @@ namespace Helika
             }
         }
 
+        public Dictionary<string, object> GetUserDetails()
+        {
+            return _userDetails;
+        }
+
+        public void SetUserDetails(Dictionary<string, object> userDetails, bool createNewAnonId = false)
+        {
+            if (userDetails["user_id"] == null)
+            {
+                _userDetails = new Dictionary<string, object>{
+                    { "user_id", GenerateAnonymousId(Guid.NewGuid().ToString(), createNewAnonId) },
+                    { "email", null },
+                    { "wallet", null }
+                };
+            }
+            _userDetails = userDetails;
+        }
+
+
+        public Dictionary<string, object> GetAppDetails()
+        {
+            return _userDetails;
+        }
+
+        public void SetAppDetails(Dictionary<string, object> appDetails)
+        {
+            _appDetails = appDetails;
+        }
+
+        public bool GetPIITracking()
+        {
+            return _piITracking;
+        }
+
+        public void SetPIITracking(bool piITracking)
+        {
+            _piITracking = piITracking;
+
+            // todo: fire an event for "Session Data Refresh" containing the pii tracking
+        }
+
+        // Todo: Update SendEvents()
         public void SendEvent(string eventName, Dictionary<string, object> eventProps)
         {
             if (!_isInitialized)
@@ -121,7 +179,7 @@ namespace Helika
             PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public void SendCustomEvent(JObject eventProps)
+        public void SendUserEvent(JObject eventProps)
         {
             if (!_isInitialized)
             {
@@ -135,7 +193,7 @@ namespace Helika
             PostAsync("/game/game-event", newEvent.ToString());
         }
 
-        public void SendCustomEvents(JObject[] eventsProps)
+        public void SendUserEvents(JObject[] eventsProps)
         {
             if (!_isInitialized)
             {
@@ -159,16 +217,6 @@ namespace Helika
         public void SetPrintToConsole(bool printToConsole)
         {
             _printEventsToConsole = printToConsole;
-        }
-
-        public string GetPlayerID()
-        {
-            return _playerID;
-        }
-
-        public void SetPlayerID(string playerID)
-        {
-            _playerID = playerID;
         }
 
         private JObject AppendAttributesToJObject(JObject obj)
@@ -342,6 +390,15 @@ namespace Helika
             });
         }
 
+        private string GenerateAnonymousId(string seed, bool createNewAnonId = false)
+        {
+            if (createNewAnonId)
+            {
+                return "anon_" + ComputeSha256Hash(seed);
+            }
+            return _anonymous_id;
+        }
+
         private static void AddIfNull(JObject helikaEvent, string key, string newValue)
         {
             if (!helikaEvent.ContainsKey(key))
@@ -407,6 +464,22 @@ namespace Helika
                 case OperatingSystemFamily.Other:
                 default:
                     return "Other";
+            }
+        }
+
+
+        private static string ComputeSha256Hash(string rawData)
+        {
+            using (SHA256 sha256Hash = SHA256.Create())
+            {
+                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(rawData));
+
+                StringBuilder builder = new StringBuilder();
+                for (int i = 0; i < bytes.Length; i++)
+                {
+                    builder.Append(bytes[i].ToString("x2")); // Convert byte to hex
+                }
+                return builder.ToString();
             }
         }
     }
