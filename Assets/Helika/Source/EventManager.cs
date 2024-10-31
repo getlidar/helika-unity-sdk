@@ -75,6 +75,8 @@ namespace Helika
             _sessionID = Guid.NewGuid().ToString();
             _anonymous_id = GenerateAnonymousId(_sessionID, true);
 
+            _userDetails["user_id"] = _anonymous_id;
+
             _isInitialized = true;
 
             // If Localhost is set, force print events
@@ -278,48 +280,137 @@ namespace Helika
 
         private void CreateSession()
         {
-            JObject internal_event = new JObject(
-                new JProperty("session_id", _sessionID),
-                new JProperty("player_id", _playerID),
-                new JProperty("sdk_name", SdkName),
-                new JProperty("sdk_version", SdkVersion),
-                new JProperty("sdk_class", SdkClass),
-                new JProperty("sdk_platform", Application.platform.ToString()),
-                new JProperty("event_sub_type", "session_created"),
-                new JProperty("telemetry_level", _telemetry.ToString())
-            );
+            Dictionary<string, object> createSessionEvent = GetEventDictTemplate("session_created", "session_created");
 
-            // TelemetryOnly means not sending Kochava, Device, and OS information
-            if (_telemetry > TelemetryLevel.TelemetryOnly)
+            AppendHelikaData((Dictionary<string, object>)createSessionEvent["event"]);
+            AppendUserDetails((Dictionary<string, object>)createSessionEvent["event"]);
+            AppendAppDetails((Dictionary<string, object>)createSessionEvent["event"]);
+            if (_piITracking)
             {
-                bool isInitialized = !string.IsNullOrEmpty(_kochavaApiKey);
-                AddIfNull(internal_event, "kochava_app_guid", _kochavaApiKey);
-                AddIfNull(internal_event, "kochava_initialized", isInitialized.ToString());
-                AddIfNull(internal_event, "kochava_device_id", _deviceId);
-                AddIfNull(internal_event, "os", SystemInfo.operatingSystem);
-                AddIfNull(internal_event, "os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily));
-                AddIfNull(internal_event, "device_model", SystemInfo.deviceModel);
-                AddIfNull(internal_event, "device_name", SystemInfo.deviceName);
-                AddIfNull(internal_event, "device_type", GetDeviceType(SystemInfo.deviceType));
-                AddIfNull(internal_event, "device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier);
-                AddIfNull(internal_event, "device_processor_type", SystemInfo.processorType);
+                AppendPIITracking((Dictionary<string, object>)createSessionEvent["event"]);
             }
 
-            JObject createSessionEvent = new JObject(
-                new JProperty("game_id", _gameId),
-                new JProperty("event_type", "session_created"),
-                new JProperty("created_at", DateTime.UtcNow.ToString("o")),
-                new JProperty("event", internal_event)
-            );
-
-            JObject evt = new JObject(
-                new JProperty("id", Guid.NewGuid().ToString()),
-                new JProperty("events", new JArray() { createSessionEvent })
-            );
+            var evt = new Dictionary<string, object>() {
+                {"id", Guid.NewGuid().ToString()},
+                {"events", new List<Dictionary<string, object>> {createSessionEvent }}
+            };
 
             // Asynchronous send event
-            PostAsync("/game/game-event", evt.ToString());
+            JObject serializedEvt = JObject.FromObject(evt);
+            PostAsync("/game/game-event", serializedEvt.ToString());
         }
+
+        // Dictionary Helpers
+        private Dictionary<string, object> GetEventDictTemplate(string event_type, string event_sub_type)
+        {
+            return new Dictionary<string, object>() {
+                // Add game_id only if the event doesn't already have it
+                {"game_id", _gameId},
+                // Convert to ISO 8601 format string using "o" specifier
+                {"created_at", DateTime.UtcNow.ToString("o")},
+                {"event_type", event_type},
+                {"event", new Dictionary<string, object>() {
+                    { "user_id", _userDetails["user_id"].ToString() },
+                    { "session_id", _sessionID },
+                    { "event_sub_type", event_sub_type },
+                    { "event_detail", new Dictionary<string, object>(){} }
+                }},
+            };
+        }
+
+        private void AppendPIITracking(Dictionary<string, object> gameEvent)
+        {
+            Dictionary<string, object> piiData = new Dictionary<string, object>{
+                {"os", SystemInfo.operatingSystem},
+                {"os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily)},
+                {"device_model", SystemInfo.deviceModel},
+                {"device_name", SystemInfo.deviceName},
+                {"device_type", GetDeviceType(SystemInfo.deviceType)},
+                {"device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier},
+                {"device_processor_type", SystemInfo.processorType}
+            };
+
+            if (!gameEvent.ContainsKey("helika_data"))
+            {
+                gameEvent.Add("helika_data", new Dictionary<string, object> { });
+            }
+
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("additional_user_info", piiData);
+        }
+
+        private void AppendHelikaData(Dictionary<string, object> gameEvent)
+        {
+            if (!gameEvent.ContainsKey("helika_data"))
+            {
+                gameEvent.Add("helika_data", new Dictionary<string, object> { });
+            }
+
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("anon_id", _anonymous_id);
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("taxonomy_ver", "v2");
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_name", SdkName);
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_version", SdkVersion);
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_class", SdkClass);
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_platform", Application.platform.ToString());
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("event_source", "client");
+            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("pii_tracking", _piITracking);
+        }
+
+        private void AppendUserDetails(Dictionary<string, object> gameEvent)
+        {
+            if (!gameEvent.ContainsKey("user_details"))
+            {
+                gameEvent.Add("user_details", new Dictionary<string, object> { });
+            }
+
+            MergeDictBIntoA((Dictionary<string, object>)gameEvent["user_details"], _userDetails);
+        }
+
+        private void AppendAppDetails(Dictionary<string, object> gameEvent)
+        {
+            if (!gameEvent.ContainsKey("app_details"))
+            {
+                gameEvent.Add("app_details", new Dictionary<string, object> { });
+            }
+
+            MergeDictBIntoA((Dictionary<string, object>)gameEvent["app_details"], _appDetails);
+        }
+
+        // JObject Helpers
+        private JObject GetEventJObjectTemplate(string event_type, string event_sub_type)
+        {
+            return new JObject(
+                new JProperty("created_at", DateTime.UtcNow.ToString("o")),
+                new JProperty("game_id", _gameId),
+                new JProperty("event_type", event_type),
+                new JProperty("event", new JObject(
+                    new JProperty("user_id", _userDetails["user_id"].ToString()),
+                    new JProperty("session_id", _sessionID),
+                    new JProperty("event_sub_type", event_sub_type),
+                    new JProperty("event_detail", new JObject())
+                ))
+            );
+        }
+
+        private void AppendPIITracking(JObject gameEvent)
+        {
+            // Todo: 
+        }
+
+        private void AppendHelikaData(JObject gameEvent)
+        {
+            // Todo: 
+        }
+
+        private void AppendUserDetails(JObject gameEvent)
+        {
+            // Todo: 
+        }
+
+        private void AppendAppDetails(JObject gameEvent)
+        {
+            // Todo: 
+        }
+
 
         private void PostAsync(string url, string data)
         {
@@ -398,6 +489,16 @@ namespace Helika
             }
             return _anonymous_id;
         }
+
+        private Dictionary<string, object> MergeDictBIntoA(Dictionary<string, object> dictA, Dictionary<string, object> dictB)
+        {
+            foreach (var kvp in dictB)
+            {
+                dictA[kvp.Key] = kvp.Value;
+            }
+            return dictA;
+        }
+
 
         private static void AddIfNull(JObject helikaEvent, string key, string newValue)
         {
