@@ -1,15 +1,9 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Text;
-using System.Numerics;
 using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.Networking;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
-using Kochava;
 
 namespace Helika
 {
@@ -32,19 +26,19 @@ namespace Helika
         public bool iosAttAuthorizationAutoRequest = true;
         public double iosAttAuthorizationWaitTime = 30;
         protected bool _piiTracking = false;
-        protected string _anonymous_id = "";
-        protected Dictionary<string, object> _appDetails = new Dictionary<string, object>{
-            { "platform_id", null },
-            { "client_app_version", null },
-            { "server_app_version", null },
-            { "store_id", null },
-            { "source_id", null }
-        };
-        protected Dictionary<string, object> _userDetails = new Dictionary<string, object>{
-            { "user_id", null },
-            { "email", null },
-            { "wallet", null }
-        };
+        protected string _anonymous_id = null;
+        protected JObject _appDetails = new JObject(
+            new JProperty("platform_id", null),
+            new JProperty("client_app_version", null),
+            new JProperty("server_app_version", null),
+            new JProperty("store_id", null),
+            new JProperty("source_id", null)
+        );
+        protected JObject _userDetails = new JObject(
+            new JProperty("user_id", null),
+            new JProperty("email", null),
+            new JProperty("wallet", null)
+        );
 
         public void Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsToConsole = false)
         {
@@ -63,9 +57,10 @@ namespace Helika
             _sessionID = Guid.NewGuid().ToString();
             _anonymous_id = GenerateAnonymousId(_sessionID, true);
 
-            _userDetails["user_id"] = _anonymous_id;
-
-            _isInitialized = true;
+            if (_userDetails.SelectToken("user_id") == null)
+            {
+                _userDetails["user_id"] = _anonymous_id;
+            }
 
             // If Localhost is set, force print events
             _telemetry = env != HelikaEnvironment.Localhost ? telemetryLevel : TelemetryLevel.None;
@@ -83,33 +78,35 @@ namespace Helika
                 }
                 CreateSession();
             }
+
+            _isInitialized = true;
         }
 
-        public Dictionary<string, object> GetUserDetails()
+        public JObject GetUserDetails()
         {
             return _userDetails;
         }
 
-        public void SetUserDetails(Dictionary<string, object> userDetails, bool createNewAnonId = false)
+        public void SetUserDetails(JObject userDetails, bool createNewAnonId = false)
         {
             if (userDetails["user_id"] == null)
             {
-                _userDetails = new Dictionary<string, object>{
-                    { "user_id", GenerateAnonymousId(Guid.NewGuid().ToString(), createNewAnonId) },
-                    { "email", null },
-                    { "wallet", null }
-                };
+                _anonymous_id = GenerateAnonymousId(Guid.NewGuid().ToString(), createNewAnonId);
+                _userDetails = new JObject(
+                    new JProperty("user_id", _anonymous_id),
+                    new JProperty("email", null),
+                    new JProperty("wallet", null)
+                );
             }
             _userDetails = userDetails;
         }
 
-
-        public Dictionary<string, object> GetAppDetails()
+        public JObject GetAppDetails()
         {
-            return _userDetails;
+            return _appDetails;
         }
 
-        public void SetAppDetails(Dictionary<string, object> appDetails)
+        public void SetAppDetails(JObject appDetails)
         {
             _appDetails = appDetails;
         }
@@ -119,84 +116,100 @@ namespace Helika
             return _piiTracking;
         }
 
-        public void SetPIITracking(bool piiTracking)
+        public void SetPIITracking(bool piiTracking, bool resendEvent = false)
         {
             _piiTracking = piiTracking;
 
-            // todo: fire an event for "Session Data Refresh" containing the pii tracking
+            if (_piiTracking && resendEvent)
+            {
+                JObject createSessionEvent = GetEventTemplate("session_created", "session_data_updated");
+                JObject innerEvent = (JObject)createSessionEvent["event"];
+
+                AddIfNull(innerEvent, "type", "Session Data Refresh");
+                AppendHelikaData(innerEvent);
+                AppendUserDetails(innerEvent);
+                AppendAppDetails(innerEvent);
+                AppendPIITracking(innerEvent);
+
+                JObject evt = new JObject(
+                    new JProperty("id", Guid.NewGuid().ToString()),
+                    new JProperty("events", new JArray() { createSessionEvent })
+                );
+
+                // Asynchronous send event
+                PostAsync("/game/game-event", evt.ToString());
+            }
         }
 
         // Todo: Update SendEvents()
-        public void SendEvent(string eventName, Dictionary<string, object> eventProps)
+        public void SendEvent(JObject eventProps)
         {
-            // if (!_isInitialized)
-            // {
-            //     throw new Exception("Event Manager is not yet initialized");
-            // }
+            if (!_isInitialized)
+            {
+                throw new Exception("Event Manager is not yet initialized");
+            }
 
-            // Dictionary<string, object> finalEvent = new Dictionary<string, object>();
-            // finalEvent["id"] = Guid.NewGuid().ToString();
-            // finalEvent["events"] = new Dictionary<string, object>[] { AppendAttributesToDictionary(eventName, eventProps) };
-
-            // JObject serializedEvt = JObject.FromObject(finalEvent);
-            // PostAsync("/game/game-event", serializedEvt.ToString());
+            JObject serializedEvt = new JObject(
+                new JProperty("id", Guid.NewGuid().ToString()),
+                new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps, false) })
+            );
+            PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public void SendEvents(string eventName, Dictionary<string, object>[] eventsProps)
+        public void SendEvents(JArray eventsProps)
         {
-            // if (!_isInitialized)
-            // {
-            //     throw new Exception("Event Manager is not yet initialized");
-            // }
+            if (!_isInitialized)
+            {
+                throw new Exception("Event Manager is not yet initialized");
+            }
 
-            // // Add helika-specific data to the events
-            // List<Dictionary<string, object>> events = new List<Dictionary<string, object>> { };
-            // foreach (Dictionary<string, object> eventProps in eventsProps)
-            // {
-            //     events.Add(AppendAttributesToDictionary(eventName, eventProps));
-            // }
+            // Add helika-specific data to the events
+            JArray events = new JArray { };
+            foreach (JObject eventProp in eventsProps)
+            {
+                events.Add(AppendAttributesToJObject(eventProp, false));
+            }
 
-            // Dictionary<string, object> finalEvent = new Dictionary<string, object>();
-            // finalEvent["id"] = Guid.NewGuid().ToString();
-            // finalEvent["events"] = events.ToArray();
-
-            // JObject serializedEvt = JObject.FromObject(finalEvent);
-            // PostAsync("/game/game-event", serializedEvt.ToString());
+            JObject serializedEvt = new JObject(
+                new JProperty("id", Guid.NewGuid().ToString()),
+                new JProperty("events", events)
+            );
+            PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
         public void SendUserEvent(JObject eventProps)
         {
-            // if (!_isInitialized)
-            // {
-            //     throw new Exception("Event Manager is not yet initialized");
-            // }
+            if (!_isInitialized)
+            {
+                throw new Exception("Event Manager is not yet initialized");
+            }
 
-            // JObject newEvent = new JObject(
-            //     new JProperty("id", Guid.NewGuid().ToString()),
-            //     new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps) })
-            // );
-            // PostAsync("/game/game-event", newEvent.ToString());
+            JObject serializedEvt = new JObject(
+                new JProperty("id", Guid.NewGuid().ToString()),
+                new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps, true) })
+            );
+            PostAsync("/game/game-event", serializedEvt.ToString());
         }
 
-        public void SendUserEvents(JObject[] eventsProps)
+        public void SendUserEvents(JArray eventsProps)
         {
-            // if (!_isInitialized)
-            // {
-            //     throw new Exception("Event Manager is not yet initialized");
-            // }
+            if (!_isInitialized)
+            {
+                throw new Exception("Event Manager is not yet initialized");
+            }
 
-            // // Add helika-specific data to the events
-            // JArray jarrayObj = new JArray();
-            // foreach (JObject eventProp in eventsProps)
-            // {
-            //     jarrayObj.Add(AppendAttributesToJObject(eventProp));
-            // }
+            // Add helika-specific data to the events
+            JArray jarrayObj = new JArray();
+            foreach (JObject eventProp in eventsProps)
+            {
+                jarrayObj.Add(AppendAttributesToJObject(eventProp, true));
+            }
 
-            // JObject newEvent = new JObject(
-            //     new JProperty("id", Guid.NewGuid().ToString()),
-            //     new JProperty("events", jarrayObj)
-            // );
-            // PostAsync("/game/game-event", newEvent.ToString());
+            JObject newEvent = new JObject(
+                new JProperty("id", Guid.NewGuid().ToString()),
+                new JProperty("events", jarrayObj)
+            );
+            PostAsync("/game/game-event", newEvent.ToString());
         }
 
         public void SetPrintToConsole(bool printToConsole)
@@ -204,196 +217,130 @@ namespace Helika
             _printEventsToConsole = printToConsole;
         }
 
-        // private JObject AppendAttributesToJObject(JObject obj)
-        // {
-        //     // Add game_id only if the event doesn't already have it
-        //     AddIfNull(obj, "game_id", _gameId);
-
-        //     // Convert to ISO 8601 format string using "o" specifier
-        //     AddOrReplace(obj, "created_at", DateTime.UtcNow.ToString("o"));
-
-        //     if (!obj.ContainsKey("event_type") || string.IsNullOrWhiteSpace(obj.GetValue("event_type").ToString()))
-        //     {
-        //         throw new ArgumentException("Invalid Event: Missing 'event_type' field");
-        //     }
-
-        //     if (!obj.ContainsKey("event"))
-        //     {
-        //         obj.Add(new JProperty("event", new JObject()));
-        //     }
-
-        //     if (obj.GetValue("event").GetType() != typeof(Newtonsoft.Json.Linq.JObject))
-        //     {
-        //         throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
-        //     }
-
-        //     JObject internalEvent = (JObject)obj.GetValue("event");
-        //     AddOrReplace(internalEvent, "session_id", _sessionID);
-
-        //     if (!string.IsNullOrWhiteSpace(_playerID))
-        //     {
-        //         AddOrReplace(internalEvent, "player_id", _playerID);
-        //     }
-
-        //     return obj;
-        // }
-
-        // private Dictionary<string, object> AppendAttributesToDictionary(string eventName, Dictionary<string, object> eventProps)
-        // {
-        //     Dictionary<string, object> helikaEvent = new Dictionary<string, object>()
-        //     {
-        //         // Add game_id only if the event doesn't already have it
-        //         {"game_id", _gameId},
-        //         // Convert to ISO 8601 format string using "o" specifier
-        //         {"created_at", DateTime.UtcNow.ToString("o")},
-        //         // Set event_type
-        //         {"event_type", eventName},
-        //     };
-
-        //     eventProps["session_id"] = _sessionID;
-        //     if (!string.IsNullOrWhiteSpace(_playerID))
-        //     {
-        //         eventProps["player_id"] = _playerID;
-        //     }
-
-        //     helikaEvent["event"] = eventProps;
-
-        //     return helikaEvent;
-        // }
-
         private void CreateSession()
         {
-            Dictionary<string, object> createSessionEvent = GetEventDictTemplate("session_created", "session_created");
-
-            AppendHelikaData((Dictionary<string, object>)createSessionEvent["event"]);
-            AppendUserDetails((Dictionary<string, object>)createSessionEvent["event"]);
-            AppendAppDetails((Dictionary<string, object>)createSessionEvent["event"]);
+            JObject createSessionEvent = GetEventTemplate("session_created", "session_created");
+            JObject internalEvent = (JObject)createSessionEvent["event"];
+            AppendHelikaData(internalEvent);
+            AppendUserDetails(internalEvent);
+            AppendAppDetails(internalEvent);
             if (_piiTracking)
             {
-                AppendPIITracking((Dictionary<string, object>)createSessionEvent["event"]);
+                AppendPIITracking(internalEvent);
             }
 
-            var evt = new Dictionary<string, object>() {
-                {"id", Guid.NewGuid().ToString()},
-                {"events", new List<Dictionary<string, object>> {createSessionEvent }}
-            };
+            JObject evt = new JObject(
+                new JProperty("id", Guid.NewGuid().ToString()),
+                new JProperty("events", new JArray() { createSessionEvent })
+            );
 
             // Asynchronous send event
-            JObject serializedEvt = JObject.FromObject(evt);
-            PostAsync("/game/game-event", serializedEvt.ToString());
+            PostAsync("/game/game-event", evt.ToString());
         }
 
-        // Dictionary Helpers
-        private Dictionary<string, object> GetEventDictTemplate(string event_type, string event_sub_type)
+        private JObject AppendAttributesToJObject(JObject obj, bool isUserEvent)
         {
-            return new Dictionary<string, object>() {
-                // Add game_id only if the event doesn't already have it
-                {"game_id", _gameId},
-                // Convert to ISO 8601 format string using "o" specifier
-                {"created_at", DateTime.UtcNow.ToString("o")},
-                {"event_type", event_type},
-                {"event", new Dictionary<string, object>() {
-                    { "user_id", _userDetails["user_id"].ToString() },
-                    { "session_id", _sessionID },
-                    { "event_sub_type", event_sub_type },
-                    { "event_detail", new Dictionary<string, object>(){} }
-                }},
-            };
-        }
+            // Forcefully overwrite the game id in the event if any
+            AddOrReplace(obj, "game_id", _gameId);
 
-        private void AppendPIITracking(Dictionary<string, object> gameEvent)
-        {
-            Dictionary<string, object> piiData = new Dictionary<string, object>{
-                {"os", SystemInfo.operatingSystem},
-                {"os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily)},
-                {"device_model", SystemInfo.deviceModel},
-                {"device_name", SystemInfo.deviceName},
-                {"device_type", GetDeviceType(SystemInfo.deviceType)},
-                {"device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier},
-                {"device_processor_type", SystemInfo.processorType}
-            };
+            // Convert to ISO 8601 format string using "o" specifier
+            AddOrReplace(obj, "created_at", DateTime.UtcNow.ToString("o"));
 
-            if (!gameEvent.ContainsKey("helika_data"))
+            if (obj.SelectToken("event_type") == null || string.IsNullOrWhiteSpace(obj.GetValue("event_type").ToString()))
             {
-                gameEvent.Add("helika_data", new Dictionary<string, object> { });
+                throw new ArgumentException("Invalid Event: Missing 'event_type' field");
             }
 
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("additional_user_info", piiData);
-        }
-
-        private void AppendHelikaData(Dictionary<string, object> gameEvent)
-        {
-            if (!gameEvent.ContainsKey("helika_data"))
+            if (obj.SelectToken("event") == null)
             {
-                gameEvent.Add("helika_data", new Dictionary<string, object> { });
+                obj.Add(new JProperty("event", new JObject()));
             }
 
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("anon_id", _anonymous_id);
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("taxonomy_ver", "v2");
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_name", SdkName);
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_version", SdkVersion);
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_class", SdkClass);
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("sdk_platform", Application.platform.ToString());
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("event_source", "client");
-            ((Dictionary<string, object>)gameEvent["helika_data"]).Add("pii_tracking", _piiTracking);
-        }
-
-        private void AppendUserDetails(Dictionary<string, object> gameEvent)
-        {
-            if (!gameEvent.ContainsKey("user_details"))
+            if (obj.GetValue("event").GetType() != typeof(JObject))
             {
-                gameEvent.Add("user_details", new Dictionary<string, object> { });
+                throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
             }
 
-            MergeDictBIntoA((Dictionary<string, object>)gameEvent["user_details"], _userDetails);
-        }
-
-        private void AppendAppDetails(Dictionary<string, object> gameEvent)
-        {
-            if (!gameEvent.ContainsKey("app_details"))
+            if (obj.SelectToken("event.event_sub_type") == null || string.IsNullOrWhiteSpace(obj.GetValue("event.event_sub_type").ToString()))
             {
-                gameEvent.Add("app_details", new Dictionary<string, object> { });
+                throw new ArgumentException("Invalid Event: Missing 'event_sub_type' field");
             }
 
-            MergeDictBIntoA((Dictionary<string, object>)gameEvent["app_details"], _appDetails);
+            JObject internalEvent = (JObject)obj["event"];
+            AddOrReplace(internalEvent, "session_id", _sessionID);
+
+            // if it's a user id, use the user_id from the userDetails, otherwise, use the anonymous id
+            AddOrReplace(internalEvent, "user_id", isUserEvent ? _userDetails["user_id"].ToString() : _anonymous_id);
+
+            AppendHelikaData(internalEvent);
+            AppendAppDetails(internalEvent);
+
+            // Only append User Details if the it's a user event
+            if (isUserEvent)
+            {
+                AppendUserDetails(internalEvent);
+            }
+
+            return obj;
         }
 
         // JObject Helpers
-        private JObject GetEventJObjectTemplate(string event_type, string event_sub_type)
+        private JObject GetEventTemplate(string event_type, string event_sub_type)
         {
             return new JObject(
                 new JProperty("created_at", DateTime.UtcNow.ToString("o")),
                 new JProperty("game_id", _gameId),
                 new JProperty("event_type", event_type),
                 new JProperty("event", new JObject(
-                    new JProperty("user_id", _userDetails["user_id"].ToString()),
-                    new JProperty("session_id", _sessionID),
-                    new JProperty("event_sub_type", event_sub_type),
-                    new JProperty("event_detail", new JObject())
-                ))
+                        new JProperty("user_id", _userDetails["user_id"].ToString()),
+                        new JProperty("session_id", _sessionID),
+                        new JProperty("event_sub_type", event_sub_type),
+                        new JProperty("event_detail", new JObject())
+                    )
+                )
             );
         }
 
         private void AppendPIITracking(JObject gameEvent)
         {
-            // Todo: 
+            JObject piiData = new JObject(
+                new JProperty("os", SystemInfo.operatingSystem),
+                new JProperty("os_family", GetOperatingSystemFamily(SystemInfo.operatingSystemFamily)),
+                new JProperty("device_model", SystemInfo.deviceModel),
+                new JProperty("device_name", SystemInfo.deviceName),
+                new JProperty("device_type", GetDeviceType(SystemInfo.deviceType)),
+                new JProperty("device_unity_unique_identifier", SystemInfo.deviceUniqueIdentifier),
+                new JProperty("device_processor_type", SystemInfo.processorType)
+            );
+
+            AddIfNull(gameEvent, "helika_data", new JObject());
+            AddOrReplace(gameEvent, "helika_data.additional_user_info", piiData);
         }
 
         private void AppendHelikaData(JObject gameEvent)
         {
-            // Todo: 
+            AddIfNull(gameEvent, "helika_data", new JObject());
+            AddOrReplace(gameEvent, "helika_data.anon_id", _anonymous_id);
+            AddOrReplace(gameEvent, "helika_data.taxonomy_ver", "v2");
+            AddOrReplace(gameEvent, "helika_data.sdk_name", SdkName);
+            AddOrReplace(gameEvent, "helika_data.sdk_version", SdkVersion);
+            AddOrReplace(gameEvent, "helika_data.sdk_class", SdkClass);
+            AddOrReplace(gameEvent, "helika_data.sdk_platform", Application.platform.ToString());
+            AddOrReplace(gameEvent, "helika_data.event_source", "client");
+            AddOrReplace(gameEvent, "helika_data.pii_tracking", _piiTracking);
         }
 
         private void AppendUserDetails(JObject gameEvent)
         {
-            // Todo: 
+            AddIfNull(gameEvent, "user_details", new JObject());
+            MergeJObjects((JObject)gameEvent["user_details"], _userDetails);
         }
 
         private void AppendAppDetails(JObject gameEvent)
         {
-            // Todo: 
+            AddIfNull(gameEvent, "app_details", new JObject());
+            MergeJObjects((JObject)gameEvent["app_details"], _appDetails);
         }
-
 
         private void PostAsync(string url, string data)
         {
@@ -446,17 +393,7 @@ namespace Helika
             return _anonymous_id;
         }
 
-        private Dictionary<string, object> MergeDictBIntoA(Dictionary<string, object> dictA, Dictionary<string, object> dictB)
-        {
-            foreach (var kvp in dictB)
-            {
-                dictA[kvp.Key] = kvp.Value;
-            }
-            return dictA;
-        }
-
-
-        private static void AddIfNull(JObject helikaEvent, string key, string newValue)
+        private static void AddIfNull(JObject helikaEvent, string key, JToken newValue)
         {
             if (!helikaEvent.ContainsKey(key))
             {
@@ -465,7 +402,7 @@ namespace Helika
         }
 
 
-        private static void AddOrReplace(JObject helikaEvent, string key, string newValue)
+        private static void AddOrReplace(JObject helikaEvent, string key, JToken newValue)
         {
             JToken gameIdObj;
             if (helikaEvent.TryGetValue(key, out gameIdObj))
@@ -476,6 +413,14 @@ namespace Helika
             {
                 helikaEvent.Add(key, newValue);
             }
+        }
+
+        private static void MergeJObjects(JObject obj1, JObject obj2)
+        {
+            obj1.Merge(obj2, new JsonMergeSettings
+            {
+                MergeArrayHandling = MergeArrayHandling.Union // Can also use MergeArrayHandling.Replace or MergeArrayHandling.Concat
+            });
         }
 
         private static string ConvertUrl(HelikaEnvironment baseUrl)
