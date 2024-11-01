@@ -332,6 +332,7 @@ MonoBehaviour:
   gameId: GameTest
   helikaEnv: 0
   telemetry: 100
+  piiTracking: 1
   printEventsToConsole: 1
   playerId: 
 --- !u!4 &1452081451

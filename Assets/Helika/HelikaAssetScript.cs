@@ -15,6 +15,7 @@ namespace Helika
         public string gameId;
         public HelikaEnvironment helikaEnv = HelikaEnvironment.Localhost;
         public TelemetryLevel telemetry = TelemetryLevel.None;
+        public bool piiTracking = false;
         public bool printEventsToConsole = true;
         private EventManager eventManager;
         public string playerId;
@@ -24,7 +25,7 @@ namespace Helika
             eventManager = EventManager.Instance;
             eventManager.SetUserDetails(
                 new JObject(
-                    new JProperty("user_id", 10),
+                    new JProperty("user_id", playerId),
                     new JProperty("email", "test@gmail.com"),
                     new JProperty("wallet", "0x8540507642419A0A8Af94Ba127F175dA090B58B0")
                 )
@@ -38,6 +39,7 @@ namespace Helika
                     new JProperty("source_id", null)
                 )
             );
+            eventManager.SetPIITracking(piiTracking);
             eventManager.Init(apiKey, gameId, helikaEnv, telemetry, printEventsToConsole);
         }
 
@@ -47,8 +49,9 @@ namespace Helika
         //     {
         //         // This is an example of sending a single user event
         //         JObject playerKilledEvent = new JObject(
-        //             new JProperty("event_type", "player_killed"),
+        //             new JProperty("event_type", "player_event"),
         //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "player_killed"),
         //                     new JProperty("user_id", 10),
         //                     new JProperty("damage_amount", 40),
         //                     new JProperty("bullets_fired", 15),
@@ -60,8 +63,9 @@ namespace Helika
 
         //         // This is an example of sending multiple events at once
         //         JObject evt1 = new JObject(
-        //             new JProperty("event_type", "bomb_planted"),
+        //             new JProperty("event_type", "bomb_event"),
         //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "bomb_planted"),
         //                     new JProperty("map", "arctic"),
         //                     new JProperty("team", "counter-terrorists")
         //                 )
@@ -69,8 +73,9 @@ namespace Helika
         //         );
 
         //         JObject evt2 = new JObject(
-        //             new JProperty("event_type", "bomb_diffused"),
+        //             new JProperty("event_type", "bomb_event"),
         //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "bomb_diffused"),
         //                     new JProperty("map", "arctic"),
         //                     new JProperty("team", "counter-terrorists"),
         //                     new JProperty("duration", 10210.121)
@@ -83,6 +88,7 @@ namespace Helika
         //         JObject winEvent = new JObject(
         //             new JProperty("event_type", "game_finished"),
         //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "win_results"),
         //                     new JProperty("winner", "counter-terrorists"),
         //                     new JProperty("map", "arctic")
         //                 )

@@ -68,16 +68,12 @@ namespace Helika
             // If PrintEventsToConsole is set to true, we only print the event to console and we don't send it
             _printEventsToConsole = printEventsToConsole;
 
-            if (_telemetry > TelemetryLevel.None)
+            // TelemetryOnly means we shouldn't initialize Kochava
+            if (_telemetry > TelemetryLevel.TelemetryOnly)
             {
-
-                // TelemetryOnly means we shouldn't initialize Kochava
-                if (_telemetry > TelemetryLevel.TelemetryOnly)
-                {
-                    _piiTracking = true;
-                }
-                CreateSession();
+                _piiTracking = true;
             }
+            CreateSession();
 
             _isInitialized = true;
         }
@@ -120,7 +116,7 @@ namespace Helika
         {
             _piiTracking = piiTracking;
 
-            if (_piiTracking && resendEvent)
+            if (_isInitialized && _piiTracking && resendEvent)
             {
                 JObject createSessionEvent = GetEventTemplate("session_created", "session_data_updated");
                 JObject innerEvent = (JObject)createSessionEvent["event"];
@@ -141,7 +137,6 @@ namespace Helika
             }
         }
 
-        // Todo: Update SendEvents()
         public void SendEvent(JObject eventProps)
         {
             if (!_isInitialized)
@@ -261,7 +256,7 @@ namespace Helika
                 throw new ArgumentException("Invalid Event: 'event' field must be of type [Newtonsoft.Json.Linq.JObject]");
             }
 
-            if (obj.SelectToken("event.event_sub_type") == null || string.IsNullOrWhiteSpace(obj.GetValue("event.event_sub_type").ToString()))
+            if (obj.SelectToken("event.event_sub_type") == null || string.IsNullOrWhiteSpace(obj.SelectToken("event.event_sub_type").ToString()))
             {
                 throw new ArgumentException("Invalid Event: Missing 'event_sub_type' field");
             }
@@ -314,20 +309,23 @@ namespace Helika
             );
 
             AddIfNull(gameEvent, "helika_data", new JObject());
-            AddOrReplace(gameEvent, "helika_data.additional_user_info", piiData);
+            AddOrReplace((JObject)gameEvent["helika_data"], "additional_user_info", piiData);
         }
 
         private void AppendHelikaData(JObject gameEvent)
         {
+            JObject helikaData = new JObject(
+                new JProperty("anon_id", _anonymous_id),
+                new JProperty("taxonomy_ver", "v2"),
+                new JProperty("sdk_name", SdkName),
+                new JProperty("sdk_version", SdkVersion),
+                new JProperty("sdk_class", SdkClass),
+                new JProperty("sdk_platform", Application.platform.ToString()),
+                new JProperty("event_source", "client"),
+                new JProperty("pii_tracking", _piiTracking)
+            );
             AddIfNull(gameEvent, "helika_data", new JObject());
-            AddOrReplace(gameEvent, "helika_data.anon_id", _anonymous_id);
-            AddOrReplace(gameEvent, "helika_data.taxonomy_ver", "v2");
-            AddOrReplace(gameEvent, "helika_data.sdk_name", SdkName);
-            AddOrReplace(gameEvent, "helika_data.sdk_version", SdkVersion);
-            AddOrReplace(gameEvent, "helika_data.sdk_class", SdkClass);
-            AddOrReplace(gameEvent, "helika_data.sdk_platform", Application.platform.ToString());
-            AddOrReplace(gameEvent, "helika_data.event_source", "client");
-            AddOrReplace(gameEvent, "helika_data.pii_tracking", _piiTracking);
+            MergeJObjects((JObject)gameEvent["helika_data"], helikaData);
         }
 
         private void AppendUserDetails(JObject gameEvent)
@@ -404,8 +402,8 @@ namespace Helika
 
         private static void AddOrReplace(JObject helikaEvent, string key, JToken newValue)
         {
-            JToken gameIdObj;
-            if (helikaEvent.TryGetValue(key, out gameIdObj))
+            JToken gameIdObj = helikaEvent.SelectToken(key);
+            if (gameIdObj != null)
             {
                 gameIdObj.Replace(newValue);
             }
