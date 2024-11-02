@@ -15,7 +15,6 @@ namespace Helika
         public string gameId;
         public HelikaEnvironment helikaEnv = HelikaEnvironment.Localhost;
         public TelemetryLevel telemetry = TelemetryLevel.None;
-        public bool piiTracking = false;
         public bool printEventsToConsole = true;
         private EventManager eventManager;
         public string playerId;
@@ -39,7 +38,6 @@ namespace Helika
                     new JProperty("source_id", null)
                 )
             );
-            eventManager.SetPIITracking(piiTracking);
             eventManager.Init(apiKey, gameId, helikaEnv, telemetry, printEventsToConsole);
         }
 
@@ -95,6 +93,64 @@ namespace Helika
         //             )
         //         );
         //         eventManager.SendEvent(winEvent);
+        //     }
+
+        //     if (Input.GetKeyDown("u"))
+        //     {
+        //         eventManager.SetUserDetails(
+        //             new JObject(
+        //                 new JProperty("user_id", null)
+        //             )
+        //         );
+        //         // Clear and Reset User Details
+        //         JObject logoutEvent = new JObject(
+        //             new JProperty("event_type", "logout"),
+        //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "user_logged_out")
+        //                 )
+        //             )
+        //         );
+        //         eventManager.SendUserEvent(logoutEvent);
+
+
+        //         eventManager.SetUserDetails(
+        //             new JObject(
+        //                 new JProperty("user_id", "new_player_id")
+        //             )
+        //         );
+        //         // Clear and Reset User Details
+        //         JObject loginEvent = new JObject(
+        //             new JProperty("event_type", "login"),
+        //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "user_logged_in")
+        //                 )
+        //             )
+        //         );
+        //         eventManager.SendUserEvent(loginEvent);
+        //     }
+
+        //     if (Input.GetKeyDown("a"))
+        //     {
+        //         var appDetails = eventManager.GetAppDetails();
+        //         appDetails["source_id"] = "google_ads";
+        //         appDetails["client_app_version"] = "0.0.3";
+        //         eventManager.SetAppDetails(appDetails);
+
+        //         // Clear and Reset User Details
+        //         JObject upgradeEvent = new JObject(
+        //             new JProperty("event_type", "upgrade"),
+        //             new JProperty("event", new JObject(
+        //                     new JProperty("event_sub_type", "upgrade_finished")
+        //                 )
+        //             )
+        //         );
+        //         eventManager.SendUserEvent(upgradeEvent);
+        //     }
+
+        //     if (Input.GetKeyDown("p"))
+        //     {
+        //         var piiTracking = eventManager.GetPIITracking();
+        //         eventManager.SetPIITracking(!piiTracking, true);
         //     }
         // }
     }

@@ -50,6 +50,10 @@ namespace Helika
             {
                 throw new ArgumentException("Missing Game ID");
             }
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new ArgumentException("Missing Helika API Key");
+            }
 
             _helikaApiKey = apiKey;
             _gameId = gameId;
@@ -85,10 +89,10 @@ namespace Helika
 
         public void SetUserDetails(JObject userDetails, bool createNewAnonId = false)
         {
-            if (userDetails["user_id"] == null)
+            if (userDetails["user_id"] == null || userDetails["user_id"].Type == JTokenType.Null)
             {
                 _anonymous_id = GenerateAnonymousId(Guid.NewGuid().ToString(), createNewAnonId);
-                _userDetails = new JObject(
+                userDetails = new JObject(
                     new JProperty("user_id", _anonymous_id),
                     new JProperty("email", null),
                     new JProperty("wallet", null)
@@ -112,11 +116,11 @@ namespace Helika
             return _piiTracking;
         }
 
-        public void SetPIITracking(bool piiTracking, bool resendEvent = false)
+        public void SetPIITracking(bool piiTracking, bool sendPIITrackingEvent = false)
         {
             _piiTracking = piiTracking;
 
-            if (_isInitialized && _piiTracking && resendEvent)
+            if (_isInitialized && _piiTracking && sendPIITrackingEvent)
             {
                 JObject createSessionEvent = GetEventTemplate("session_created", "session_data_updated");
                 JObject innerEvent = (JObject)createSessionEvent["event"];
@@ -344,7 +348,7 @@ namespace Helika
         {
             if (_printEventsToConsole)
             {
-                var message = "[Helika] Event:" + data;
+                var message = "[Helika] Event Sent: " + (_telemetry > TelemetryLevel.None ? "Sent" : "Print Only") + "\nEvent:\n" + data;
                 Debug.Log(message);
             }
 
