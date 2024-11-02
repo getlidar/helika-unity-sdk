@@ -37,7 +37,5 @@
          * "subspecs" (optional)
            Subspecs to include for the pod.
      -->
-    <iosPod name="Apple-Cocoapod-KochavaTracker" version="~> 7.4" bitcodeEnabled="true"
-            minTargetSdk="7.0" addToAllTargets="false" />
   </iosPods>
 </dependencies>
