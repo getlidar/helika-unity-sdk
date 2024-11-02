@@ -72,7 +72,7 @@ namespace Helika
             // If PrintEventsToConsole is set to true, we only print the event to console and we don't send it
             _printEventsToConsole = printEventsToConsole;
 
-            // TelemetryOnly means we shouldn't initialize Kochava
+            // TelemetryOnly means we shouldn't include PII Tracking
             if (_telemetry > TelemetryLevel.TelemetryOnly)
             {
                 _piiTracking = true;
