@@ -137,7 +137,7 @@ namespace Helika
                 );
 
                 // Asynchronous send event
-                PostAsync("/game/game-event", evt.ToString());
+                PostAsync("/events/", evt.ToString());
             }
         }
 
@@ -152,7 +152,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps, false) })
             );
-            PostAsync("/game/game-event", serializedEvt.ToString());
+            PostAsync("/events/", serializedEvt.ToString());
         }
 
         public void SendEvents(JArray eventsProps)
@@ -173,7 +173,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", events)
             );
-            PostAsync("/game/game-event", serializedEvt.ToString());
+            PostAsync("/events/", serializedEvt.ToString());
         }
 
         public void SendUserEvent(JObject eventProps)
@@ -187,7 +187,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps, true) })
             );
-            PostAsync("/game/game-event", serializedEvt.ToString());
+            PostAsync("/events/", serializedEvt.ToString());
         }
 
         public void SendUserEvents(JArray eventsProps)
@@ -208,7 +208,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", jarrayObj)
             );
-            PostAsync("/game/game-event", newEvent.ToString());
+            PostAsync("/events/", newEvent.ToString());
         }
 
         public void SetPrintToConsole(bool printToConsole)
@@ -234,7 +234,7 @@ namespace Helika
             );
 
             // Asynchronous send event
-            PostAsync("/game/game-event", evt.ToString());
+            PostAsync("/events/", evt.ToString());
         }
 
         private JObject AppendAttributesToJObject(JObject obj, bool isUserEvent)
@@ -430,9 +430,9 @@ namespace Helika
             switch (baseUrl)
             {
                 case HelikaEnvironment.Production:
-                    return "https://api.helika.io/v1";
+                    return "https://events.analytics.helika.io";
                 case HelikaEnvironment.Develop:
-                    return "https://api-stage.helika.io/v1";
+                    return "https://events.analytics.helika.io/";
                 case HelikaEnvironment.Localhost:
                 default:
                     return "http://localhost:8181/v1";
