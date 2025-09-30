@@ -349,7 +349,7 @@ For technical support and questions:
 
 ---
 
-**Version**: 0.3.0  
-**Last Updated**: January 2024  
+**Version**: 0.4.0  
+**Last Updated**: Sept 2025
 **Unity Compatibility**: 2021.3 LTS+  
 **Contributors Welcome**: Yes! 🎉
