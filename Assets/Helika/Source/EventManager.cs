@@ -432,10 +432,10 @@ namespace Helika
                 case HelikaEnvironment.Production:
                     return "https://events.analytics.helika.io";
                 case HelikaEnvironment.Develop:
-                    return "https://events.analytics.helika.io/";
+                    return "https://events.analytics.helika.io";
                 case HelikaEnvironment.Localhost:
                 default:
-                    return "http://localhost:8181/v1";
+                    return "http://localhost:8182";
             }
         }
 
