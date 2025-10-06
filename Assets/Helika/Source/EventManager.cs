@@ -435,7 +435,7 @@ namespace Helika
                     return "https://events.analytics.helika.io";
                 case HelikaEnvironment.Localhost:
                 default:
-                    return "http://localhost:8181/v1";
+                    return "http://localhost:8181";
             }
         }
 
