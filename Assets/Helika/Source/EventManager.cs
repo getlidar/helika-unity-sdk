@@ -1,3 +1,4 @@
+using System.Diagnostics.Tracing;
 using System;
 using System.Text;
 using System.Security.Cryptography;
@@ -39,6 +40,7 @@ namespace Helika
             new JProperty("email", null),
             new JProperty("wallet", null)
         );
+        protected HelikaEnvironment _env;
 
         public void Init(string apiKey, string gameId, HelikaEnvironment env, TelemetryLevel telemetryLevel = TelemetryLevel.All, bool printEventsToConsole = false)
         {
@@ -65,6 +67,8 @@ namespace Helika
             {
                 _userDetails["user_id"] = _anonymous_id;
             }
+
+            _env = env;
 
             // If Localhost is set, force print events
             _telemetry = env != HelikaEnvironment.Localhost ? telemetryLevel : TelemetryLevel.None;
@@ -137,7 +141,7 @@ namespace Helika
                 );
 
                 // Asynchronous send event
-                PostAsync("/events/", evt.ToString());
+                PostAsync(GetUrl(_baseUrl, _env), evt.ToString());
             }
         }
 
@@ -152,7 +156,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps, false) })
             );
-            PostAsync("/events/", serializedEvt.ToString());
+            PostAsync(GetUrl(_baseUrl, _env), serializedEvt.ToString());
         }
 
         public void SendEvents(JArray eventsProps)
@@ -173,7 +177,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", events)
             );
-            PostAsync("/events/", serializedEvt.ToString());
+            PostAsync(GetUrl(_baseUrl, _env), serializedEvt.ToString());
         }
 
         public void SendUserEvent(JObject eventProps)
@@ -187,7 +191,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", new JArray() { AppendAttributesToJObject(eventProps, true) })
             );
-            PostAsync("/events/", serializedEvt.ToString());
+            PostAsync(GetUrl(_baseUrl, _env), serializedEvt.ToString());
         }
 
         public void SendUserEvents(JArray eventsProps)
@@ -208,7 +212,7 @@ namespace Helika
                 new JProperty("id", Guid.NewGuid().ToString()),
                 new JProperty("events", jarrayObj)
             );
-            PostAsync("/events/", newEvent.ToString());
+            PostAsync(GetUrl(_baseUrl, _env), newEvent.ToString());
         }
 
         public void SetPrintToConsole(bool printToConsole)
@@ -234,7 +238,7 @@ namespace Helika
             );
 
             // Asynchronous send event
-            PostAsync("/events/", evt.ToString());
+            PostAsync(GetUrl(_baseUrl, _env), evt.ToString());
         }
 
         private JObject AppendAttributesToJObject(JObject obj, bool isUserEvent)
@@ -354,7 +358,7 @@ namespace Helika
 
             if (_telemetry > TelemetryLevel.None)
             {
-                UnityWebRequest request = new UnityWebRequest(_baseUrl + url, "POST");
+                UnityWebRequest request = new UnityWebRequest(url, "POST");
 
                 // Set the request method and content type
                 request.SetRequestHeader("Content-Type", "application/json");
@@ -436,6 +440,19 @@ namespace Helika
                 case HelikaEnvironment.Localhost:
                 default:
                     return "http://localhost:8182";
+            }
+        }
+
+        private static string GetUrl(string baseUrl, HelikaEnvironment env)
+        {
+            switch (env)
+            {
+                case HelikaEnvironment.Production:
+                    return baseUrl + "/events/";
+                case HelikaEnvironment.Develop:
+                case HelikaEnvironment.Localhost:
+                default:
+                    return baseUrl + "/events/sandbox";
             }
         }
 
